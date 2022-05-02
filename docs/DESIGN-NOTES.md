@@ -3,11 +3,15 @@
 
 This is _not_ a design document, just some initial notes.
 
-Implementing a complete community artifact repository is not a small task:
-* We should divide this task into subproject
-* We should aim to implement these subprojects as Minimum Viable Products and imprioving as required
+The core assumption here is that 
+* we want to build a system that is resilient to repository compromise to a degree where attackers gaining control of the repository software and database would not give them ability to feed downloading clients malicious files.
+* We are going to use TUF with developer signing to implement this
 
-Some potential subprojects below.
+Implementing a complete community artifact repository like that is not a small task:
+* We should divide this task into subproject
+* We should aim to implement these subprojects as Minimum Viable Products and improving them as required
+
+we should consider following subprojects:
 
 ## Repository design (client POV)
 
