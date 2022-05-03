@@ -2,11 +2,12 @@
 
 This document assumes we are trying to implement a system that is safe from repository compromise: A TUF installation where the artifacts are protected by a chain of offline keys. This would be a major improvement over current model where compromise of e.g. pypi.org infrastructure could result in downloader clients downloading compromised artifacts.
 
-TUf presents a solution to repository compromise but there are multiple design questions that I believe have not been solved around the TUF repository User Experience: 
+TUF presents a solution to repository compromise but there are multiple design questions that I believe have not been solved around the TUF repository User Experience: 
 * The whole concept of local signing keys is alien to currently existing artifact repository workflows (e.g. processes that Python developers currently follow to maintain PyPI projects).
-* The TUF implementations that currently exist all expect the artifact repository to operate in the way that is easiest for the TUF implementation: This approach is unlikely to result in a solution that is acceptable to artifact repository maintainers and developers.
-* Implementing TUF _will_ affect the repository workflows in a fundamental way. As a result those workflows need to be part of the design from the start.
+* The TUF implementations that currently exist all try to provide a "generic" TUF toolbox: this is a reasonable approach to simpler setups but not adequate for the community artifact repository use case because in this use case the gap from "toolbox" to "functioning repository" is far, far too wide.
+* Implementing TUF _will_ affect the repository workflows in a fundamental way. As a result those community repository workflows need to be part of the design from the start: assuming that repositories will just adapt to some "ideal TUF workflow" is unrealistic.
 
+Some specific issues are listed below
 
 ## Private keys vs UX
 
