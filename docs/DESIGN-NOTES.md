@@ -21,6 +21,8 @@ What does our repository provide to downloaders? Just bare bones targets downloa
 
 These will require some design as TUF itself does not provide this. 
 
+[Repository design, client POV](TUF-CLIENT-DESIGN.md)
+
 ## Define the supported (developer/admin) user stories
 
 Before we can design an API and the tool that uses the API, we need to have a comprehensive view of the things we want to support. Defining them is likely the most important piece of this project.
