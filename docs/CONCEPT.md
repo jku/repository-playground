@@ -12,7 +12,7 @@ Evolutionary improvements are doable within the real repository projects (such a
 
 ## Potential Solution
 
-If we were to set up a new _reference artifact repository project_, we might be able to side step these issues. We could develop working processes in this reference artifact repository: After the solutions are shown to work, selling the same ideas to e.g. PyPI will be easier, and enabling similar or same features in PyPI is no longer exploratory work but re-implementation.
+If we were to set up a new _reference artifact repository project_, we might be able to side step these issues. We could develop working processes in this reference artifact repository: After the solutions are shown to work, advocating those same ideas to community repositories will be easier, and enabling similar or same features in those repositories is no longer exploratory work but (re-)implementation.
 
 The core idea here is a new project that implements a specific content repository (much like the real world repositories like PyPI but smaller in scale): The project documents the decisions made as well as the processes and components used to implement a “best practice community content repository” that is demonstrably more secure than current repositories are. The goal is to be able to experiment and implement these processes and components much faster than an existing repository like PyPI can.
 
