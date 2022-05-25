@@ -15,6 +15,7 @@ Note that pypi hides the "project" from downloader completely: artifact names ar
 
 * Project and artifact names are used as parts of TUF targetpaths
 * "/" is not valid in a name as we want to use that as targetpath delimiter
+  * "\\" is also not valid in a name as it is synonymous with "/" for many users
 * Project "projectA" metadata gets a delegation "projects/projectA/*"
 * Multiple artifacts per project can be supported in future but initially
   there is a default artifact name that matches the project name
