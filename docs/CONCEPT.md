@@ -16,7 +16,7 @@ If we were to set up a new _reference artifact repository project_, we might be 
 
 The core idea here is a new project that implements a specific content repository (much like the real world repositories like PyPI but smaller in scale): The project documents the decisions made as well as the processes and components used to implement a “best practice community content repository” that is demonstrably more secure than current repositories are. The goal is to be able to experiment and implement these processes and components much faster than an existing repository like PyPI can.
 
-In practice I expect we will have a repository reachable over the inernet, a downloader client (comparable to pip), developer tools, and defined workflows for maintaining the repository.
+In practice I expect we will have a repository reachable over the internet, a downloader client (akin to package managers like pip), tools for developers/package owners, and defined workflows for maintaining the repository.
 
 ## Goals
 
