@@ -9,7 +9,7 @@ The core assumption here is that
 
 Implementing a complete community artifact repository like that is not a small task:
 * We should divide this task into subproject
-* We should aim to implement these subprojects as Minimum Viable Products and improving them as required
+* We should aim to implement these subprojects as Minimum Viable Products and improve them as required
 
 we should consider following subprojects:
 
