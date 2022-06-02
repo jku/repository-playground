@@ -49,7 +49,7 @@ This is a special case in that it is a "write" action but the repository does no
 
 Maintainer wants to add a new maintainer to the project, remove an existing maintainer or change the authentication mechanism for an existing maintainer.
 
-**For TUF This is maybe the most interesting story: it requires modifying delegating metadata but also needs to be automated – PEP480 does not solve this problem**
+**For TUF this is maybe the most interesting story: it requires modifying delegating metadata but also needs to be automated – PEP480 does not solve this problem**
 
 ### “Add new release to a project”
 
