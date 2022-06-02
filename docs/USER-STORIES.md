@@ -55,7 +55,7 @@ Maintainer wants to add a new maintainer to the project, remove an existing main
 
 Maintainer wants to upload a new release artifact.
 
-### “Remove a release
+### “Remove a release”
 
 Maintainer wants to remove or at least prevent downloads of an existing artifact
 
