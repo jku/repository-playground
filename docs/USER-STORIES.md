@@ -11,15 +11,15 @@ The user categories are:
 
 ### “Download ABC release X.Y.Z”
 
-User wants a specific release of project ABC 
+User wants a specific release of project ABC
 
 ### “Download latest ABC release”
 
-User wants the newest release of project ABC 
+User wants the newest release of project ABC
 
 ### “List ABC release versions”
 
-User wants to see what release of project ABC are available 
+User wants to see what release of project ABC are available
 
 ## Repository Admin
 
@@ -41,7 +41,7 @@ Admin wants to prevent a project from spreading malware: Stop serving some (or a
 
 A new maintainer wants to create a new project in the repository, reserving the project name: This delegates trust from the repository to the maintainer for this specific project.
 
-This is a special case in that it is a "write" action but the repository does not necessarily have any existing relationship with the maintainer: in essence new project creation is available to anyone on the internet. 
+This is a special case in that it is a "write" action but the repository does not necessarily have any existing relationship with the maintainer: in essence new project creation is available to anyone on the internet.
 
 **For TUF this is a special case as well: every other action is "authorized" by the fact that the change is signed by correct keys... In this case we want to add new keys and create a new delegation without the proposed change being signed by any keys**
 
