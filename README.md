@@ -22,5 +22,6 @@ We're hoping Repository playground is used to solve other security problems that
 
 More details in documentation:
  * [Concept](docs/CONCEPT.md)
+ * [Baseline Repository](docs/BASELINE.md): A simple repository implementation we consider the starting point for our improvements
  * [TUF Design Questions](docs/TUF-DESIGN-QUESTIONS.md): What are some of unexplored issues with TUF in the community artifact repository use case
  * [TUF Design Notes](docs/DESIGN-NOTES.md): Some very early design discussion on what to build
