@@ -6,7 +6,7 @@ The concept resembles PyPI and other current repositories: authenticated project
 * maintainer actions or repository admin actions are not visible or verifiable to the downloader client. Only repository content at time of download matters to the downloader
 * The repository makes a security guarantee that any artifact URLS starting with `projectA/...` are only controlled by the maintainers of projectA (and the repository admins). This is not something downloaders can verify.
 * repository admins can affect the repository content as they wish: the expectation is that they only provide content created by project maintainers but this is ensured only by internal processes not visible to downloaders.
-* Artifact validity is ensured at upload time in an internal repository process by A) authenticating the uploader as a maintainer of the project and B) running heuristic checks on the artifacts (like a malware scan). This validation is also not verifiable by downloader clients
+* Artifact validity is ensured at upload time in an internal repository process by A) authenticating the uploader as a maintainer of the project and B) running heuristic checks on the artifacts (such as a malware scan). This validation is also not verifiable by downloader clients
 
 The above means that compromising the repository infrastructure allows attacker to modify repository content, and downloader clients will accept that content. Repository Playground does not intend to implement any of the upload and repository maintenance machinery because of that reason: we will only "simulate" that by creating repository content that the upload and repository maintenance machinery would have created.
 
@@ -16,7 +16,7 @@ The repository is just collection of directories (projects) that contain an inde
 
 Example 
 ```
-  projects/
+  /
     projectA/
       index.json
       projectA-0.0.1.tar.gz
@@ -41,7 +41,7 @@ projectA/index.json:
  }
 ```
 
-Client should always start by downloading `<baseurl>/projects/<projectname>/index.json`.
+Client should always start by downloading `<baseurl>/<projectname>/index.json`.
 They can then use that content to decide which artifact to download.
 
 Some notes on this design:
@@ -51,9 +51,10 @@ Some notes on this design:
   * security if artifacts were hosted on another host (currently no benefit here)
   * integrity to verify download succeeded
 * the client has to know both project name and product name to download something
-* TODO case sensitivity for project/product names?
 
 
 ## Implementation
 
-As mentioned, upload or repository maintenance machinery is not going to be implemented. There will be static repository content as per design (see https://github.com/jku/playground-baseline), and a downloader client that is able to download artifacts.
+* Upload or repository maintenance tools are not implemented: The repository maintainer edits index.json and commits content to repository with unspecified tools
+* The manually maintained content repository exists at https://github.com/jku/playground-baseline
+* A [baseline](baseline/) downloader client has been implemented
