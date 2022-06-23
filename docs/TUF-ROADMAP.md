@@ -16,11 +16,11 @@ There is no need to have every milestone defined in the beginning: It's fine if 
 
 This is a list of achieved milestones and current view of some planned near-future milestones.
 
-* ✓ Milestone 0: baseline repository. See [BASELINE design](BASELINE.md).
+* ✓ Milestone 0: [BAseline repository](design-milestones/00-BASELINE.md).
   - An approximation of current repositories without TUF (like PyPI)
   - A client and a published repository is provided
   - No tools for editing or maintenance
-* Milestone 1: Minimal TUF
+* Milestone 1: [Minimal TUF](design-milestones/01-TUF-MINIMAL.md)
   - A client and a published metadata repository is provided
   - No tools for metadata editing or maintenance
   - Repository (metadata) is produced and stored manually with unspecified tools

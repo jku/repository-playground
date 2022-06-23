@@ -1,10 +1,8 @@
 # Minimal TUF repository and client
 
-This is a minimal TUF repository and client setup.
-TODO: Add link to to repository design doc.
+This is a minimal TUF repository and client source code, as defined in [TUF Minimal design](docs/design-milestones/01-TUF-MINIMAL.md).
 
 See https://github.com/jku/playground-tuf-minimal for the repository content.
-
 
 ## Client
 
