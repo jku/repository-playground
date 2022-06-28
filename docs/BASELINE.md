@@ -57,4 +57,4 @@ Some notes on this design:
 
 * Upload or repository maintenance tools are not implemented: The repository maintainer edits index.json and commits content to repository with unspecified tools
 * The manually maintained content repository exists at https://github.com/jku/playground-baseline
-* A [baseline](baseline/) downloader client has been implemented
+* A [baseline downloader client](/baseline/) has been implemented
