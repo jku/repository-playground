@@ -16,21 +16,20 @@ There is no need to have every milestone defined in the beginning: It's fine if 
 
 This is a list of achieved milestones and current view of some planned near-future milestones.
 
-* ✓ Milestone 0: [BAseline repository](design-milestones/00-BASELINE.md).
+* ✓ Milestone 0: [Baseline repository](design-milestones/00-BASELINE.md).
   - An approximation of current repositories without TUF (like PyPI)
   - A client and a published repository is provided
   - No tools for editing or maintenance
-* Milestone 1: [Minimal TUF](design-milestones/01-TUF-MINIMAL.md)
+* ✓ Milestone 1: [Minimal TUF](design-milestones/01-TUF-MINIMAL.md)
   - A client and a published metadata repository is provided
   - No tools for metadata editing or maintenance
   - Repository (metadata) is produced and stored manually with unspecified tools
   - Repository (metadata) design aims for the most minimal one
-* Milestone 2: Timestamps
+* Milestone: Timestamps
   - Timestamping server side functionality
   - The server runs on the cloud, there is a key management solution
   - Repository (metadata) is still otherwise produced and stored manually with unspecified tools
-* Milestone 3: Minimal uploads
+* Milestone: Minimal uploads
   - A server-side API that allows uploading new versions of existing metadata: at least adding and removing target files should be possible
-* Milestone 4: Upload tool
+* Milestone: Upload tool
   - A client-side developer tool that can upload new targets and metadata versions
-

@@ -1,11 +1,12 @@
 # Minimal TUF repository
 
 This is the Minimum Viable TUF implementation:
-* Metadata structure is the simplest possible
+* Metadata structure (maintained at https://github.com/jku/playground-tuf-minimal/) is the simplest possible
 * Only two active roles (keys): root and repository admin
-* No maintenance tools: repository admin is expected to edit metadata using other unspecified methods
-* repository admin stores metadata in git, this is automatically published to downloader clients HTTP endpoint
-* A downloader client is provided in this repository, see playground/README.md for usage.
+* No "server" functionality: Metadata is not modified by any online processes, only by the repository admin
+* No maintenance tools: repository admin is expected to edit metadata using other unspecified methods (https://github.com/vmware-labs/repository-editor-for-tuf was used in practice)
+* repository admin makes metadata changes and signs the changes locally, pushes the changes to a remote git repository: this is automatically published to downloader clients HTTP endpoint
+* A downloader client is provided in this repository, see playground/README.md for client usage.
 
 ## Security
 
@@ -27,14 +28,12 @@ The repository exposes the same content structure as the baseline design: A repo
 ```
     "python-tuf/src/1.0.0/tuf-1.0.0.tar.gz"
 ```
-This translates to project "python-tuf", product "src", version "1.0.0", artifact name "tuf-1.0.0.tar.gz".
+This translates to project "python-tuf", product "src", version "1.0.0", artifact name "tuf-1.0.0.tar.gz". This targetpath structure means the client is able to search for specific artifacts using the metadata that contains the targetpaths.
 
 Repository guarantees that
-* All target files in the repository have targetpaths that match the structure above (with the exception of index.json files, see below)
+* All target files in the repository have targetpaths that match the structure above
 * project, product, version or artifact strings are not allowed to contain "/" or "=" and are valid URL fragments
 * projects can have multiple products, products can have multiple versions
-* A project-product-version uniquely identifies a single artifact
-
-As an added feature, every project provides a index.json file (targetpath "python-tuf/index.json") that lists the products, versions and artifacts for that project much like [BASELINE design](00-BASELINE.md): This is information that is already parsable from the targetpaths, and must match the targetpaths.
+* A project-product-version triplet uniquely identifies a single artifact
 
 The actual artifacts are maintained in the same git repository -- but could easily be stored elsewhere.
