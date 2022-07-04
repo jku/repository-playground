@@ -22,7 +22,7 @@ The advantages over baseline repository are:
 
 Metadata matching this design is maintained in https://github.com/jku/playground-tuf-minimal/
 
-The design forfeits the advantages that TUF snapshot and timestamp would typically provide in exchange for simplicity:  Expiry dates are set far into the future and a single key ("repository admin key") signs for timestamp, snapshot and targets. this means no "cloud" functionality is required and metadata changes only happen when the repository admin adds or removes artifacts.
+The design forfeits the advantages that TUF snapshot and timestamp would typically provide in exchange for simplicity:  Expiry dates are set far into the future and a single key ("repository admin key") signs for timestamp, snapshot and targets. this means that apart from file storage, no server functionality is required and metadata changes only happen when the repository admin adds or removes artifacts.
 
 The repository exposes the same content structure as the baseline design: A repository contains projects, projects contain products, products have versioned artifacts. This structure is exposed in artifact targetpaths: 
 ```
