@@ -25,11 +25,11 @@ This is a list of achieved milestones and current view of some planned near-futu
   - No tools for metadata editing or maintenance
   - Repository (metadata) is produced and stored manually with unspecified tools
   - Repository (metadata) design aims for the most minimal one
+* Milestone: Minimal uploads
+  - A server-side API that allows uploading new versions of metadata: at least adding and removing target files should be possible
 * Milestone: Timestamps
   - Timestamping server side functionality
   - The server runs on the cloud, there is a key management solution
   - Repository (metadata) is still otherwise produced and stored manually with unspecified tools
-* Milestone: Minimal uploads
-  - A server-side API that allows uploading new versions of existing metadata: at least adding and removing target files should be possible
 * Milestone: Upload tool
   - A client-side developer tool that can upload new targets and metadata versions
