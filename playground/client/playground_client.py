@@ -11,7 +11,7 @@ from tuf.ngclient import Updater
 # The repository is maintained at
 # https://jku.github.io/playground-tuf-minimal/
 # and published to BASE_URL:
-BASE_URL = "https://jku.github.io/playground-tuf-minimal/repository/"
+BASE_URL = "https://jku.github.io/playground-tuf-minimal/repository"
 METADATA_DIR = f"{Path.home()}/.local/share/playground-tuf-minimal"
 CLIENT_ROOT = f"{os.path.dirname(os.path.abspath(__file__))}/root.json"
 
