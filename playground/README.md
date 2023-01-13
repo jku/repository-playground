@@ -1,29 +1,57 @@
-# Minimal TUF repository and client
+# CI-based TUF implementation
 
-This is a minimal TUF repository and client source code, as defined in [TUF Minimal design](docs/design-milestones/01-TUF-MINIMAL.md).
+This is a TUF implementation that operates on Continuous Integration platform.
+Supported features include:
+* Threshold signing with offline keys, guided by CI
+* Automated online signing
+* Streamlined, opinionated user experience
+* No custom code required
 
-See https://github.com/jku/playground-tuf-minimal for the repository content.
+The optimal use case (at least to begin with) is TUF repositories with a low
+to moderate frequency of change, both for target target files and keys.
 
-## Client
+## Status
 
-`client/` contains a simple (but from TUF perspective complete) client. It can securely lookup and download artifacts from the repository.
+Planning: any code should be seen as experimental.
 
-### Client usage:
+## Documentation
 
-```
-# List product releases available for a project 'tuf-spec':
-$ python playground_client.py list tuf-spec
+* [Design document](https://docs.google.com/document/d/140jiFHGc3wwEmNaJmUdgkNeNK4i4CC-lm5-eVQYXiL0)
+* [Implementation notes](IMPLEMENTATION-NOTES.md)
 
-# Download current version of default product:
-$ python playground_client.py download tuf-spec
+## Setup & operation
 
-# Download another product in the project:
-$ python playground_client.py download tuf-spec/tarball
+TODO Document:
+* How to start a new TUF repository
+* How to modify delegations 
+* How to modify target files
 
-# Download a specific version:
-$ python playground_client.py download tuf-spec/tarball=1.0.28
-```
+## Components
 
-## Repository & developer tools
+### Repository template
 
-No tools are provided at this point. 
+Status: TODO.
+
+Intent is to setup a new git repository for this.
+
+### Repository actions
+
+Status: TODO, very rough prototype exists in https://github.com/jku/playground-git-demo
+and git-repo-prototype branch in this repository.
+
+Intent is that
+* actions are maintained in this git repository, e.g. actions/signing-event/action.yml
+* the software the actions use is maintained in this repository in playground/repo/
+
+### signing tool
+
+Status: TODO, prototype exists in git-repo-prototype branch.
+
+Intent is that the signer tools is maintained in this repository in playground/signer/
+
+### Client
+
+`client/` contains a simple downloader client. It can securely lookup and download artifacts from the repository.
+There is nothing specific to this repository implementation in the client implementation: any other client could be used. 
+
+TODO: review whether "list" is something we want to support or not.
