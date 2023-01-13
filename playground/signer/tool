@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+
+import logging
+import click
+import os
+from securesystemslib.signer import GCPSigner, HSMSigner
+
+from tool_repo import ToolRepo
+
+logger = logging.getLogger(__name__)
+
+@click.group()
+@click.option("-v", "--verbose", count=True, default=0)
+def cli(verbose: int):
+    """signing and editing tool for a git-based TUF repository."""
+    logger.setLevel(logging.WARNING - verbose * 10)
+
+@cli.command()
+@click.option("--gcp-key-id")
+@click.option("--user-name", "-u", help="GitHub Username")
+def init(gcp_key_id: str, user_name: str):
+    """Initialize a new TUF repository."""
+    if os.path.exists("repository"):
+        raise click.ClickException("repository/ exists already, cannot initialize")
+
+    if not gcp_key_id:
+        gcp_key_id = click.prompt("Please enter the Google Cloud KMS key id to use for online signing")
+    try:
+        online_uri, online_key = GCPSigner.import_(gcp_key_id)
+    except Exception as e:
+        raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+    online_key.unrecognized_fields["x-playground-online-uri"] = online_uri
+
+    click.prompt("Insert HW key to use as initial root and targets key and press enter", default=True, show_default=False)
+    try:
+        root_uri, root_key = HSMSigner.import_()
+    except Exception as e:
+        raise click.ClickException(f"Failed to read HW key: {e}")
+
+    if not user_name:
+        user_name = click.prompt("Enter root keyowners github username")
+    if not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    root_key.unrecognized_fields["x-playground-signer"] = user_name
+
+    os.mkdir("repository")
+    repo = ToolRepo("repository", user_name)
+    with repo.edit("root") as root:
+        root.add_key(root_key, "root")
+        root.add_key(root_key, "targets")
+        root.add_key(online_key, "timestamp")
+        root.add_key(online_key, "snapshot")
+    
+    with repo.edit("targets") as targets:
+        pass
+
+
+if __name__ == '__main__':
+    cli()
