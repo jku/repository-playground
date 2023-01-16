@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import filecmp
+from glob import glob
+import logging
+import os
+from typing import List
+import click
+
+from online_repo import OnlineRepo
+
+logger = logging.getLogger(__name__)
+
+@click.group()
+@click.option("-v", "--verbose", count=True, default=0)
+def cli(verbose: int):
+    """repo tool for a CI-based TUF repository."""
+    logger.setLevel(logging.WARNING - verbose * 10)
+
+@cli.command()
+@click.argument("known-good-dir")
+def verify(known_good_dir: str):
+    """Verify new submitted metadata for root, targets"""
+    # TODO nicer output and return value
+    repo = OnlineRepo("repository")
+
+    # find the files that have changed or been added
+    files = glob("*.json", root_dir="repository")
+    changed_roles = []
+    for fname in files:
+        if (
+            not os.path.exists(f"{known_good_dir}/{fname}") or
+            not filecmp.cmp(fname, f"{known_good_dir}/{fname}",  shallow=False)
+        ):
+            if fname in ["timestamp.json", "snapshot.json"]:
+                assert("online files changed unexpectedly")
+
+            changed_roles.append(fname[:-len(".json")])
+
+    # reorder toplevels first
+    for toplevel in ["targets", "root"]:
+        if toplevel in changed_roles:
+            changed_roles.remove(toplevel)
+            changed_roles.insert(0, toplevel)
+
+    for role in changed_roles:
+        repo.verify(role, known_good_dir)
+        logger.debug(f"Verified {role}")
+
+    click.echo(f"Verified {len(changed_roles)} roles")
+
+@cli.command()
+@click.argument("roles", nargs=-1)
+def status(roles: List[str]):
+    # TODO verify each role, but also print out whose signatures are missing
+    raise NotImplementedError
+
+@cli.command()
+def snapshot():
+    repo = OnlineRepo("repository")
+    updated, _ = repo.snapshot()
+    repo.timestamp(force=updated)
+
+    click.echo(f"Snapshot & timestamp")
+
+@cli.command()
+def timestamp():
+    repo = OnlineRepo("repository")
+    repo.timestamp(force=True)
+
+    click.echo(f"Timestamp")
+
+if __name__ == '__main__':
+    cli()
