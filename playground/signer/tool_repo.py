@@ -15,7 +15,7 @@ def unmodified_in_git(filepath: str) -> bool:
         return False
 
     cmd = ["git", "diff", "--exit-code", "--no-patch", "--", filepath]
-    return subprocess.call(cmd) != 0
+    return subprocess.call(cmd) == 0
 
 class ToolRepo(Repository):
     """A local repository implementation for the signer tool
@@ -26,7 +26,7 @@ class ToolRepo(Repository):
         self._dir = dir
         self._user_name = user_name
 
-        os.makedirs(f"{self._dir}/root_history")
+        os.makedirs(f"{self._dir}/root_history",exist_ok=True)
 
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
@@ -49,8 +49,14 @@ class ToolRepo(Repository):
             md = self.open("targets")
 
         # https://github.com/theupdateframework/python-tuf/issues/2272
-        r, keys = md._get_role_and_keys(role)
-        return [key for key in keys.values() if key.keyid in r.keyids ]
+        r = md.signed.get_delegated_role(role)
+        keys = []
+        for keyid in r.keyids:
+            try:
+                keys.append(md.signed.get_key(keyid))
+            except ValueError:
+                pass
+        return keys
 
     def _sign(self, md: Metadata, key: Key) -> None:
         def secret_handler(secret: str) -> str:

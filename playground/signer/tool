@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import logging
+from typing import Optional, Union
 import click
 import os
 from securesystemslib.signer import GCPSigner, HSMSigner
-
+from tuf.api.metadata import Signed, Targets, Root
 from tool_repo import ToolRepo
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def init(gcp_key_id: str, user_name: str):
 
     click.prompt("Insert HW key to use as initial root and targets key and press enter", default=True, show_default=False)
     try:
-        root_uri, root_key = HSMSigner.import_()
+        _, root_key = HSMSigner.import_()
     except Exception as e:
         raise click.ClickException(f"Failed to read HW key: {e}")
 
@@ -44,7 +45,6 @@ def init(gcp_key_id: str, user_name: str):
 
     root_key.unrecognized_fields["x-playground-signer"] = user_name
 
-    os.mkdir("repository")
     repo = ToolRepo("repository", user_name)
     with repo.edit("root") as root:
         root.add_key(root_key, "root")
@@ -54,6 +54,58 @@ def init(gcp_key_id: str, user_name: str):
     
     with repo.edit("targets") as targets:
         pass
+
+    click.echo("Initialized repository")
+
+# TODO support gcp  in add_key
+@cli.command()
+@click.option("--user-name", "-u", help="GitHub Username")
+@click.argument("role")
+def add_key(user_name: str, role: str):
+
+    if not user_name:
+        user_name = click.prompt("Enter keyowners github username")
+    if not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    click.prompt(f"Insert HW key to add {user_name} as {role} signer and press enter", default=True, show_default=False)
+    try:
+        uri, key = HSMSigner.import_()
+    except Exception as e:
+        raise click.ClickException(f"Failed to read HW key: {e}")
+
+    key.unrecognized_fields["x-playground-signer"] = user_name
+
+    if role in ["root", "timestamp", "snapshot", "targets"]:
+        delegating_role = "root"
+    else:
+        delegating_role = "targets"
+
+    repo = ToolRepo("repository", user_name)
+    with repo.edit(delegating_role) as delegator:
+        delegator.add_key(key, role)
+
+    click.echo(f"Modified {delegating_role}: Added {user_name} as signer for {role}.")
+
+
+@cli.command()
+@click.option("--user-name", "-u", help="GitHub Username")
+@click.argument("role")
+@click.argument("threshold", type=int)
+def set_threshold(user_name: Optional[str], role: str, threshold: int):
+    if user_name and not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    if role in ["root", "timestamp", "snapshot", "targets"]:
+        delegating_role = "root"
+    else:
+        delegating_role = "targets"
+
+    repo = ToolRepo("repository", user_name)
+    with repo.edit(delegating_role) as delegator:
+        delegator: Root
+        delegated = delegator.get_delegated_role(role)
+        delegated.threshold = threshold
 
 
 if __name__ == '__main__':
