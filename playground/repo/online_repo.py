@@ -1,27 +1,36 @@
 import os
 from datetime import datetime, timedelta
-from typing import Dict
+from typing import Dict, List, Optional, Set, Tuple
 from securesystemslib.signer import Signer
+from securesystemslib.exceptions import UnverifiedSignatureError
 
-from tuf.api.metadata import Metadata, MetaFile, Snapshot, Targets, Timestamp
+from tuf.api.metadata import Key, Metadata, MetaFile, Snapshot, Targets, Timestamp
 from tuf.repository import Repository
+from tuf.api.serialization.json import CanonicalJSONSerializer
+
 
 # TODO Add a metadata cache so we don't constantly open files
 
 class OnlineRepo(Repository):
-    """A online repository implementation for use in GitHub Actions """
+    """A online repository implementation for use in GitHub Actions
+    
+    Arguments:
+        dir: repository directory to operate on
+        prev_dir: optional known good repository directory
+    """
 
-    def __init__(self, dir: str):
+    def __init__(self, dir: str, prev_dir: str = None):
         self._dir = dir
+        self._prev_dir = prev_dir
 
         root_md = self.open("root")
 
         self._signers: Dict[str, Signer] = {}
         for rolename in ["timestamp", "snapshot"]:
             # https://github.com/theupdateframework/python-tuf/issues/2272
-            role, keys = root_md._get_role_and_keys(rolename)
+            role = root_md.signed.get_delegated_role(rolename)
             assert len(role.keyids) == 1
-            key = keys[role.keyids[0]]
+            key = root_md.signed.get_key(role.keyids[0])
             uri = key.unrecognized_fields["x-playground-online-uri"]
             self._signers[rolename] = Signer.from_priv_key_uri(uri, key)
 
@@ -33,6 +42,15 @@ class OnlineRepo(Repository):
     def _get_expiry(self, role: str) -> datetime:
         # TODO be smarter about expiry
         return datetime.utcnow() + timedelta(days=365)
+
+    def open_prev(self, role:str) -> Optional[Metadata]:
+        """Return known good metadata for role (if it exists)"""
+        prev_fname = f"{self._prev_dir}/{role}.json"
+        if os.path.exists(prev_fname):
+            with open(prev_fname, "rb") as f:
+                return Metadata.from_bytes(f.read())
+
+        return None
 
     def open(self, role:str) -> Metadata:
         """Return metadata from repo dir, or create new metadata"""
@@ -66,7 +84,7 @@ class OnlineRepo(Repository):
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:
-        """Build list of targets metadata based on delegations and filenames"""
+        """Build list of targets metadata based on delegations and role versions"""
         # Reads all targets metadata from file, does not verify them
         targets_md: Metadata[Targets] = self.open("targets")
 
@@ -83,7 +101,7 @@ class OnlineRepo(Repository):
         snapshot_md: Metadata[Snapshot] = self.open("snapshot")
         return MetaFile(snapshot_md.signed.version)
 
-    def verify(self, role: str, known_good_dir: str):
+    def verify(self, role: str):
         """Make sure submitted metadata is acceptable for inclusion in repository
 
         It is the callers responsibility to call this in the order that makes sense
@@ -92,32 +110,66 @@ class OnlineRepo(Repository):
         # this is only for non-online metadata submissions
         assert role not in ["timestamp", "snapshot"]
 
-        # load the known good version of this metadata (if it exists)
-        known_good_fname = f"{known_good_dir}/{role}.json"
-        known_good_md = None
-        known_good_version = 0
-        if os.path.exists(known_good_fname):
-            with open(known_good_fname, "rb") as f:
-                known_good_md = Metadata.from_bytes(f.read())
-            known_good_version = known_good_md.signed.version
-
+        # load the previous and submitted versions of this metadata
+        prev_md = self.open_prev(role)
         md = self.open(role)
 
         # load delegating metadata
         if role == "root":
             # The previous root must also verify new root
-            if known_good_md:
-                known_good_md.verify_delegate(role, md)
+            if prev_md:
+                prev_md.verify_delegate(role, md)
             delegator_md = md
         elif role == "targets":
             delegator_md = self.open("root")
         else:
             delegator_md = self.open("targets")
 
+        if prev_md and md.signed.version <= prev_md.signed.version:
+            raise ValueError(f"Unexpected version {md.signed.version}")
+
         # verify signatures
         delegator_md.verify_delegate(role, md)
 
-        if md.signed.version <= known_good_version:
-            raise ValueError(f"Unexpected version {md.signed.version}")
-
         # TODO check that "expires" and other content in the metadata is acceptable to this repository
+
+
+    def get_signature_state(self, rolename: str) -> Tuple[Set[str], Set[str], int]:
+        """Return signed signers, missing signers, and threshold"""
+        # this is only for non-online metadata submissions
+        assert rolename not in ["timestamp", "snapshot"]
+
+        md = self.open(rolename)
+        data = CanonicalJSONSerializer().serialize(md.signed)
+
+        # load delegating metadata
+        delegators: List[Metadata] = []
+        if rolename == "root":
+            # new root must be signed so it satisfies both old and new root
+            prev_md = self.open_prev("root")
+            if prev_md:
+                    delegators.append(prev_md)
+            delegators.append(md)
+        elif rolename == "targets":
+            delegators.append(self.open("root"))
+        else:
+            delegators.append(self.open("targets"))
+
+        # count signatures
+        missing = set()
+        signed = set()
+        for delegator in delegators:
+            role = delegator.signed.get_delegated_role(rolename)
+            for keyid in role.keyids:
+                try:
+                    key: Key = delegator.signed.get_key(keyid)
+                except ValueError:
+                    continue
+
+                try:
+                    key.verify_signature(md.signatures[keyid], data)
+                    signed.add(key.unrecognized_fields["x-playground-signer"])
+                except (KeyError, UnverifiedSignatureError):
+                    missing.add(key.unrecognized_fields["x-playground-signer"])
+
+        return signed, missing, role.threshold
