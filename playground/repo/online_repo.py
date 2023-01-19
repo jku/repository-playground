@@ -22,17 +22,22 @@ class OnlineRepo(Repository):
     def __init__(self, dir: str, prev_dir: str = None):
         self._dir = dir
         self._prev_dir = prev_dir
+        self._signers = None
 
-        root_md = self.open("root")
+    @property
+    def signers(self) -> Dict[str, Signer]:
+        if self._signers is None:
+            self._signers = {}
+            root_md = self.open("root")
+            for rolename in ["timestamp", "snapshot"]:
+                # https://github.com/theupdateframework/python-tuf/issues/2272
+                role = root_md.signed.get_delegated_role(rolename)
+                assert len(role.keyids) == 1
+                key = root_md.signed.get_key(role.keyids[0])
+                uri = key.unrecognized_fields["x-playground-online-uri"]
+                self._signers[rolename] = Signer.from_priv_key_uri(uri, key)
+        return self._signers
 
-        self._signers: Dict[str, Signer] = {}
-        for rolename in ["timestamp", "snapshot"]:
-            # https://github.com/theupdateframework/python-tuf/issues/2272
-            role = root_md.signed.get_delegated_role(rolename)
-            assert len(role.keyids) == 1
-            key = root_md.signed.get_key(role.keyids[0])
-            uri = key.unrecognized_fields["x-playground-online-uri"]
-            self._signers[rolename] = Signer.from_priv_key_uri(uri, key)
 
     def _get_filename(self, role: str) -> str:
         # NOTE for now store non-versioned files in git. This is nice for
@@ -77,7 +82,7 @@ class OnlineRepo(Repository):
         md.signed.version += 1
         md.signed.expires = self._get_expiry(role)
         
-        md.sign(self._signers[role])
+        md.sign(self.signers[role])
 
         with open(self._get_filename(role), "wb") as f:
             f.write(md.to_bytes())
