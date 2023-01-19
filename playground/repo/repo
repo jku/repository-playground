@@ -98,9 +98,10 @@ def status(known_good_sha: str):
             signed, missing, threshold = repo.get_signature_state(role)
             click.echo(f"{role} signing state: {len(signed)}/{threshold} signatures")
             if signed:
-                click.echo(f" * Signed by: {', '.join(signed)}")
+                click.echo(f"* Signed by: {', '.join(signed)}")
             if missing:
-                click.echo(f" * Signature missing: {', '.join(missing)}")
+                click.echo(f"* Signature missing: {', '.join(missing)}")
+            click.echo("")
 
 @cli.command()
 def snapshot():
