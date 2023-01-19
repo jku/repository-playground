@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+from contextlib import contextmanager
 import filecmp
 from glob import glob
 import logging
 import os
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from typing import List
 import click
@@ -20,18 +22,15 @@ def cli(verbose: int):
     level = max(0, logging.WARNING - verbose * 10)
     logging.basicConfig(level=level, format='%(message)s')
 
-@cli.command()
-@click.argument("known-good-sha")
-def verify(known_good_sha: str):
-    """Verify new submitted metadata for root, targets"""
-
+# TODO name this better
+@contextmanager
+def known_good(sha: str):
     with TemporaryDirectory() as tmpdir:
         # fresh git clone
         cmd = ["git", "clone", "--quiet", "./", tmpdir]
         subprocess.check_call(cmd)
-        cmd = ["git", "checkout", "--quiet", known_good_sha] 
+        cmd = ["git", "-C", tmpdir, "checkout", "--quiet", sha]
         subprocess.check_call(cmd)
-
 
         # find the files that have changed or been added since known-good-sha
         known_good_dir=f"{tmpdir}/repository"
@@ -53,6 +52,14 @@ def verify(known_good_sha: str):
                 changed_roles.remove(toplevel)
                 changed_roles.insert(0, toplevel)
 
+        yield tmpdir, changed_roles
+
+@cli.command()
+@click.argument("known-good-sha")
+def verify(known_good_sha: str):
+    """Verify new submitted metadata for root, targets"""
+
+    with known_good(known_good_sha) as (known_good_dir, changed_roles):
         # TODO: assert that repository/root_history changes are correct
 
         repo = OnlineRepo("repository", known_good_dir)
@@ -66,42 +73,28 @@ def verify(known_good_sha: str):
 @click.argument("known-good-sha")
 def status(known_good_sha: str):
     """Print out the signing status of each modified role"""
-    with TemporaryDirectory() as tmpdir:
-        # fresh git clone
-        cmd = ["git", "clone", "--quiet", "./", tmpdir]
-        subprocess.check_call(cmd)
-        cmd = ["git", "-C", tmpdir, "checkout", "--quiet", known_good_sha]
-        subprocess.check_call(cmd)
+    failures = 0
 
-        # find the files that have changed or been added since known-good-sha
-        known_good_dir=f"{tmpdir}/repository"
-        files = glob("*.json", root_dir="repository")
-        changed_roles = []
-        for fname in files:
-            if (
-                not os.path.exists(f"{known_good_dir}/{fname}") or
-                not filecmp.cmp(f"repository/{fname}", f"{known_good_dir}/{fname}",  shallow=False)
-            ):
-                if fname in ["timestamp.json", "snapshot.json"]:
-                    assert("online files changed unexpectedly")
-
-                changed_roles.append(fname[:-len(".json")])
-
-        # reorder toplevels first
-        for toplevel in ["targets", "root"]:
-            if toplevel in changed_roles:
-                changed_roles.remove(toplevel)
-                changed_roles.insert(0, toplevel)
-
+    with known_good(known_good_sha) as (known_good_dir, changed_roles):
         repo = OnlineRepo("repository", known_good_dir)
         for role in changed_roles:
+            # TODO: for root there are actually two thresholds -- unsure how to represent that here
             signed, missing, threshold = repo.get_signature_state(role)
-            click.echo(f"{role} signing state: {len(signed)}/{threshold} signatures")
+            try:
+                repo.verify(role)
+                click.echo(f"{role} signing state: {len(signed)}/{threshold} signatures, role is verified")
+            except:
+                failures += 1
+                click.echo(f"{role} signing state: {len(signed)}/{threshold} signatures, role is *not* yet verified")
+
             if signed:
                 click.echo(f"* Signed by: {', '.join(signed)}")
             if missing:
                 click.echo(f"* Signature missing: {', '.join(missing)}")
+
             click.echo("")
+
+    sys.exit(failures)
 
 @cli.command()
 def snapshot():
