@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 from securesystemslib.signer import Signature, Signer
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
+from tuf.api.metadata import Key, Metadata, MetaFile, Root, Signed, Snapshot, Targets, Timestamp
 from tuf.repository import Repository
 
 def unmodified_in_git(filepath: str) -> bool:
@@ -38,22 +38,22 @@ class ToolRepo(Repository):
         # TODO be smarter about expiry
         return datetime.utcnow() + timedelta(days=365)
 
-    def _get_keys(self, role: str, md: Metadata) -> List[Key]:
+    def _get_keys(self, role: str, signed: Signed) -> List[Key]:
         """Lookup signing keys from delegating role"""
         
         if role == "root":
-            pass # use the metadata we have already
+            pass # use the Signed we have already
         elif role in ["timestamp", "snapshot", "targets"]:
-            md = self.open("root")
+            signed = self.open("root").signed
         else:
-            md = self.open("targets")
+            signed = self.open("targets").signed
 
         # https://github.com/theupdateframework/python-tuf/issues/2272
-        r = md.signed.get_delegated_role(role)
+        r = signed.get_delegated_role(role)
         keys = []
         for keyid in r.keyids:
             try:
-                keys.append(md.signed.get_key(keyid))
+                keys.append(signed.get_key(keyid))
             except ValueError:
                 pass
         return keys
@@ -62,12 +62,18 @@ class ToolRepo(Repository):
         def secret_handler(secret: str) -> str:
             return click.prompt(f"Enter {secret} to sign metadata", hide_input=True)
 
-        if self._user_name != key.unrecognized_fields["x-playground-signer"]:
-            # another signer: add empty signature
-            md.signatures[key.keyid] = Signature(key.keyid, "")
-        else:
-            signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
-            md.sign(signer, True)
+        signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+        md.sign(signer, True)
+
+    def _write(self, role: str, md: Metadata) -> None:
+        filename = self._get_filename(role)
+
+        data = md.to_bytes()
+        with open(filename, "wb") as f:
+            f.write(data)
+        if role == "root":
+            with open(self._get_versioned_root_filename(md.signed.version), "wb") as f:
+                f.write(data)
 
     def open(self, role:str) -> Metadata:
         """Return metadata from repo dir, or create new metadata"""
@@ -100,19 +106,25 @@ class ToolRepo(Repository):
         md.signed.expires = self._get_expiry(role)
 
         md.signatures.clear()
-        for key in self._get_keys(role, md):
+        for key in self._get_keys(role, md.signed):
             if self._user_name != key.unrecognized_fields["x-playground-signer"]:
                 # another signer: add empty signature
                 md.signatures[key.keyid] = Signature(key.keyid, "")
             else:
                 self._sign(md, key)
 
-        data = md.to_bytes()
-        with open(filename, "wb") as f:
-            f.write(data)
-        if role == "root":
-            with open(self._get_versioned_root_filename(md.signed.version), "wb") as f:
-                f.write(data)
+        self._write(role, md)
+
+    def sign(self, role: str) -> None:
+        md = self.open(role)
+        for key in self._get_keys(role, md.signed):
+            if self._user_name != key.unrecognized_fields["x-playground-signer"]:
+                continue
+            # TODO the caller should know when it wants to sign: this check should not exist
+            if key.keyid not in md.signatures or md.signatures[key.keyid].signature == "":
+                self._sign(md, key)
+
+        self._write(role, md)
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:

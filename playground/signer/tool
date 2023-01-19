@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from glob import glob
 import logging
 from typing import Optional, Union
 import click
@@ -106,6 +107,18 @@ def set_threshold(user_name: Optional[str], role: str, threshold: int):
         delegator: Root
         delegated = delegator.get_delegated_role(role)
         delegated.threshold = threshold
+
+@cli.command()
+@click.option("--user-name", "-u", help="GitHub Username")
+def sign(user_name: Optional[str]):
+    if user_name and not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    # TODO figure out what needs signing, instead of trying to sign everything
+    repo = ToolRepo("repository", user_name)
+    files = glob("*.json", root_dir="repository")
+    for fname in files:
+        repo.sign(fname[:-len(".json")])
 
 
 if __name__ == '__main__':
