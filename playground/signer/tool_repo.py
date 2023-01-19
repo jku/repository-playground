@@ -6,6 +6,7 @@ from typing import Dict, List
 from securesystemslib.signer import Signature, Signer
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Signed, Snapshot, Targets, Timestamp
+from tuf.api.serialization.json import JSONSerializer
 from tuf.repository import Repository
 
 def unmodified_in_git(filepath: str) -> bool:
@@ -68,7 +69,7 @@ class ToolRepo(Repository):
     def _write(self, role: str, md: Metadata) -> None:
         filename = self._get_filename(role)
 
-        data = md.to_bytes()
+        data = md.to_bytes(JSONSerializer())
         with open(filename, "wb") as f:
             f.write(data)
         if role == "root":

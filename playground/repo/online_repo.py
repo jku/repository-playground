@@ -5,6 +5,7 @@ from securesystemslib.signer import Signer
 from securesystemslib.exceptions import UnverifiedSignatureError
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Snapshot, Targets, Timestamp
+from tuf.api.serialization.json import JSONSerializer
 from tuf.repository import Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer
 
@@ -85,7 +86,7 @@ class OnlineRepo(Repository):
         md.sign(self.signers[role])
 
         with open(self._get_filename(role), "wb") as f:
-            f.write(md.to_bytes())
+            f.write(md.to_bytes(JSONSerializer()))
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:
