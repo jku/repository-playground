@@ -70,7 +70,7 @@ def status(known_good_sha: str):
         # fresh git clone
         cmd = ["git", "clone", "--quiet", "./", tmpdir]
         subprocess.check_call(cmd)
-        cmd = ["git", "checkout", "--quiet", known_good_sha]
+        cmd = ["git", "-C", tmpdir, "checkout", "--quiet", known_good_sha]
         subprocess.check_call(cmd)
 
         # find the files that have changed or been added since known-good-sha
