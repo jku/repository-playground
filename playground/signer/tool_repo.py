@@ -119,6 +119,8 @@ class ToolRepo(Repository):
     def sign(self, role: str) -> None:
         md = self.open(role)
         for key in self._get_keys(role, md.signed):
+            if "x-playground-signer" not in key.unrecognized_fields:
+                continue
             if self._user_name != key.unrecognized_fields["x-playground-signer"]:
                 continue
             # TODO the caller should know when it wants to sign: this check should not exist
