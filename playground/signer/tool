@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+from collections import defaultdict
 from glob import glob
 import logging
-from typing import Optional, Union
+import sys
+from typing import Optional
 import click
 import os
 from securesystemslib.signer import GCPSigner, HSMSigner
-from tuf.api.metadata import Signed, Targets, Root
+from tuf.api.metadata import TargetFile, Root
 from tool_repo import ToolRepo
 
 logger = logging.getLogger(__name__)
@@ -120,6 +122,40 @@ def sign(user_name: Optional[str]):
     for fname in files:
         repo.sign(fname[:-len(".json")])
 
+
+@cli.command()
+@click.option("--user-name", "-u", help="GitHub Username")
+def update_targets(user_name: Optional[str]):
+    if user_name and not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    # go through all target files in targets/, produce TargetFiles for everything
+    targets_by_role = defaultdict(dict)
+    for name in os.listdir("targets/"):
+        if os.path.isdir(f"targets/{name}"):
+            for sub_name in os.listdir(f"targets/{name}/"):
+                tfile = TargetFile.from_file(
+                    f"{name}/{sub_name}",
+                    f"targets/{name}/{sub_name}"
+                )
+                targets_by_role[name][tfile.path] = tfile
+        else:
+            tfile = TargetFile.from_file(f"{name}", f"targets/{name}")
+            targets_by_role["targets"][tfile.path] = tfile
+
+    # then go through each targets metadata and modify if needed
+    files = glob("*.json", root_dir="repository")
+    repo = ToolRepo("repository", user_name)
+    for fname in files:
+        if fname in ["root.json", "timestamp.json", "snapshot.json"]:
+            continue
+
+        role = fname[:-len(".json")]
+        target_files = targets_by_role.pop(role, {})
+        repo.update_targets(role, target_files)
+
+    if targets_by_role:
+        sys.exit(f"Failed to find metadata files for: {', '.join(targets_by_role)}")
 
 if __name__ == '__main__':
     cli()

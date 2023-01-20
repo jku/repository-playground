@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 from securesystemslib.signer import Signature, Signer
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, Signed, Snapshot, Targets, Timestamp
+from tuf.api.metadata import Key, Metadata, MetaFile, Root, Signed, Snapshot, TargetFile, Targets, Timestamp
 from tuf.api.serialization.json import JSONSerializer
-from tuf.repository import Repository
+from tuf.repository import AbortEdit, Repository
 
 def unmodified_in_git(filepath: str) -> bool:
     """Return True if the file is in git, and does not have changes in index"""
@@ -128,6 +128,13 @@ class ToolRepo(Repository):
                 self._sign(md, key)
 
         self._write(role, md)
+
+    def update_targets(self, role: str, target_files: Dict[str, TargetFile]) -> None:
+        with self.edit(role) as targets:
+            if target_files == targets.targets:
+                raise AbortEdit("Skipping unneeded edit")
+
+            targets.targets = target_files
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:
