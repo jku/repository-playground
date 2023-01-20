@@ -1,29 +1,50 @@
 #!/usr/bin/env python
 
-from collections import defaultdict
-from glob import glob
+import click
+from configparser import ConfigParser
 import logging
 import sys
-from typing import Optional
-import click
 import os
+from collections import defaultdict
+from glob import glob
 from securesystemslib.signer import GCPSigner, HSMSigner
 from tuf.api.metadata import TargetFile, Root
+from typing import Optional
+
 from tool_repo import ToolRepo
 
 logger = logging.getLogger(__name__)
 
 @click.group()
+@click.option("--user-name", "-u", help="GitHub Username")
 @click.option("-v", "--verbose", count=True, default=0)
-def cli(verbose: int):
+@click.pass_context
+def cli(ctx, user_name: Optional[str], verbose: int):
     """signing and editing tool for a git-based TUF repository."""
     logger.setLevel(logging.WARNING - verbose * 10)
 
+    config = ConfigParser()
+    config.read('.signer-tool.ini')
+
+    if "PYKCS11LIB" not in os.environ and "pykcs11lib" in config["settings"]:
+        os.environ["PYKCS11LIB"] = config["settings"]["pykcs11lib"]
+
+    if not user_name and "user-name" in config["settings"]:
+        user_name = config["settings"]["user-name"]
+    if not user_name.startswith("@"):
+        user_name = f"@{user_name}"
+
+    ctx.obj = ToolRepo("repository", user_name)
+
+
 @cli.command()
 @click.option("--gcp-key-id")
-@click.option("--user-name", "-u", help="GitHub Username")
-def init(gcp_key_id: str, user_name: str):
+@click.pass_obj
+def init(repo: ToolRepo, gcp_key_id: str):
     """Initialize a new TUF repository."""
+    if not repo.user_name:
+        sys.exit("GitHub user name is required when initializing, use --user-name")
+
     if os.path.exists("repository"):
         raise click.ClickException("repository/ exists already, cannot initialize")
 
@@ -41,14 +62,9 @@ def init(gcp_key_id: str, user_name: str):
     except Exception as e:
         raise click.ClickException(f"Failed to read HW key: {e}")
 
-    if not user_name:
-        user_name = click.prompt("Enter root keyowners github username")
-    if not user_name.startswith("@"):
-        user_name = f"@{user_name}"
 
-    root_key.unrecognized_fields["x-playground-signer"] = user_name
+    root_key.unrecognized_fields["x-playground-signer"] = repo.user_name
 
-    repo = ToolRepo("repository", user_name)
     with repo.edit("root") as root:
         root.add_key(root_key, "root")
         root.add_key(root_key, "targets")
@@ -60,75 +76,61 @@ def init(gcp_key_id: str, user_name: str):
 
     click.echo("Initialized repository")
 
-# TODO support gcp  in add_key
+# TODO support changing online keys here
 @cli.command()
-@click.option("--user-name", "-u", help="GitHub Username")
 @click.argument("role")
-def add_key(user_name: str, role: str):
+@click.pass_obj
+def add_key(repo: ToolRepo, role: str):
 
-    if not user_name:
-        user_name = click.prompt("Enter keyowners github username")
-    if not user_name.startswith("@"):
-        user_name = f"@{user_name}"
+    if not repo.user_name:
+        sys.exit("GitHub user name is required when adding keys, use --user-name")
 
-    click.prompt(f"Insert HW key to add {user_name} as {role} signer and press enter", default=True, show_default=False)
+    click.prompt(f"Insert HW key to add {repo.user_name} as {role} signer and press enter", default=True, show_default=False)
     try:
         uri, key = HSMSigner.import_()
     except Exception as e:
         raise click.ClickException(f"Failed to read HW key: {e}")
 
-    key.unrecognized_fields["x-playground-signer"] = user_name
+    key.unrecognized_fields["x-playground-signer"] = repo.user_name
 
     if role in ["root", "timestamp", "snapshot", "targets"]:
         delegating_role = "root"
     else:
         delegating_role = "targets"
 
-    repo = ToolRepo("repository", user_name)
     with repo.edit(delegating_role) as delegator:
         delegator.add_key(key, role)
 
-    click.echo(f"Modified {delegating_role}: Added {user_name} as signer for {role}.")
+    click.echo(f"Modified {delegating_role}: Added {repo.user_name} as signer for {role}.")
 
 
 @cli.command()
-@click.option("--user-name", "-u", help="GitHub Username")
 @click.argument("role")
 @click.argument("threshold", type=int)
-def set_threshold(user_name: Optional[str], role: str, threshold: int):
-    if user_name and not user_name.startswith("@"):
-        user_name = f"@{user_name}"
-
+@click.pass_obj
+def set_threshold(repo: ToolRepo, role: str, threshold: int):
     if role in ["root", "timestamp", "snapshot", "targets"]:
         delegating_role = "root"
     else:
         delegating_role = "targets"
 
-    repo = ToolRepo("repository", user_name)
     with repo.edit(delegating_role) as delegator:
         delegator: Root
         delegated = delegator.get_delegated_role(role)
         delegated.threshold = threshold
 
 @cli.command()
-@click.option("--user-name", "-u", help="GitHub Username")
-def sign(user_name: Optional[str]):
-    if user_name and not user_name.startswith("@"):
-        user_name = f"@{user_name}"
-
+@click.pass_obj
+def sign(repo: ToolRepo):
     # TODO figure out what needs signing, instead of trying to sign everything
-    repo = ToolRepo("repository", user_name)
     files = glob("*.json", root_dir="repository")
     for fname in files:
         repo.sign(fname[:-len(".json")])
 
 
 @cli.command()
-@click.option("--user-name", "-u", help="GitHub Username")
-def update_targets(user_name: Optional[str]):
-    if user_name and not user_name.startswith("@"):
-        user_name = f"@{user_name}"
-
+@click.pass_obj
+def update_targets(repo: ToolRepo):
     # go through all target files in targets/, produce TargetFiles for everything
     targets_by_role = defaultdict(dict)
     for name in os.listdir("targets/"):
@@ -145,7 +147,6 @@ def update_targets(user_name: Optional[str]):
 
     # then go through each targets metadata and modify if needed
     files = glob("*.json", root_dir="repository")
-    repo = ToolRepo("repository", user_name)
     for fname in files:
         if fname in ["root.json", "timestamp.json", "snapshot.json"]:
             continue

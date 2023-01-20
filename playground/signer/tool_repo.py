@@ -25,7 +25,7 @@ class ToolRepo(Repository):
 
     def __init__(self, dir: str, user_name: str):
         self._dir = dir
-        self._user_name = user_name
+        self.user_name = user_name
 
         os.makedirs(f"{self._dir}/root_history",exist_ok=True)
 
@@ -108,7 +108,7 @@ class ToolRepo(Repository):
 
         md.signatures.clear()
         for key in self._get_keys(role, md.signed):
-            if self._user_name != key.unrecognized_fields["x-playground-signer"]:
+            if self.user_name != key.unrecognized_fields["x-playground-signer"]:
                 # another signer: add empty signature
                 md.signatures[key.keyid] = Signature(key.keyid, "")
             else:
@@ -121,7 +121,7 @@ class ToolRepo(Repository):
         for key in self._get_keys(role, md.signed):
             if "x-playground-signer" not in key.unrecognized_fields:
                 continue
-            if self._user_name != key.unrecognized_fields["x-playground-signer"]:
+            if self.user_name != key.unrecognized_fields["x-playground-signer"]:
                 continue
             # TODO the caller should know when it wants to sign: this check should not exist
             if key.keyid not in md.signatures or md.signatures[key.keyid].signature == "":
