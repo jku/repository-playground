@@ -45,8 +45,8 @@ def init(repo: ToolRepo, gcp_key_id: str):
     if not repo.user_name:
         sys.exit("GitHub user name is required when initializing, use --user-name")
 
-    if os.path.exists("repository"):
-        raise click.ClickException("repository/ exists already, cannot initialize")
+    if os.path.exists("repository/root.json"):
+        raise click.ClickException("root.json exists already, cannot initialize")
 
     if not gcp_key_id:
         gcp_key_id = click.prompt("Please enter the Google Cloud KMS key id to use for online signing")
