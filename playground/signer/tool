@@ -31,7 +31,7 @@ def cli(ctx, user_name: Optional[str], verbose: int):
 
     if not user_name and "user-name" in config["settings"]:
         user_name = config["settings"]["user-name"]
-    if not user_name.startswith("@"):
+    if user_name and not user_name.startswith("@"):
         user_name = f"@{user_name}"
 
     ctx.obj = ToolRepo("repository", user_name)
