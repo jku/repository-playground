@@ -1,4 +1,4 @@
 securesystemslib[gcpkms] 
-git+https://github.com/jku/python-tuf@no-key
+git+https://github.com/theupdateframework/python-tuf
 click
 
