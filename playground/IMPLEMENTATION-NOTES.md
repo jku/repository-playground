@@ -55,8 +55,20 @@ Your signature is requested for the following changes to <rolename>:
 This change has already been signed by: [@userA]
 
 Sign? [y/N]: y
-Please open a PR to add your signature: <url>
+Please open a PR to <signing-event-name> with your changes: <url>
 ```
+
+or
+
+```bash
+$ signer <signing-event-name>
+You have been invited as a signer for <rolename>. To become a signer,
+your public key and username have to be added to the repository.
+
+Add public key? [y/N]: y
+Please open a PR to <signing-event-name> with your changes: <url>
+```
+
 
 There are still some open questions here -- like how to allow reviewing the proposed
 changes at your own pace, then coming back to sign (this is mostly an issue WRT
