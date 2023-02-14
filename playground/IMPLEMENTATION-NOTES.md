@@ -16,9 +16,9 @@ Planned actions:
   * Change delegation -- likely NOT offered automatically as there's no logical
     trigger for this
 
-Some  "offered" actions may also have to be manually triggerable. The
-"change delegation" action potentially does require input from user: _role,
-signers/keys, threshold, expiry-period, signing-period_.
+The "change delegation" action is the only one that needs to be manually triggerable and
+potentially does require input from user: _role, signers/keys, threshold, expiry-period,
+signing-period_.
   * Note that "initialize repository" is a special case of 4 X "change
     delegation" with some defaults
   * Plan is to accept input in challenge-response manner (although arguments
@@ -37,10 +37,11 @@ signers/keys, threshold, expiry-period, signing-period_.
 
 To achieve the "no arguments" goal, the tool will require context, such as:
 * custom metadata (see below)
-* tool configuration
+* tool configuration: These could be prompted for any time they're not found
   * CI username
   * HW signing implementation details like pkcs11lib
   * git repository details (e.g. remote names, see below)
+
 
 ## Describing metadata changes
 
@@ -86,10 +87,10 @@ Custom metadata and how it is used
 * role.invites
   * used by repo to notify invited usernames
   * used by tool to accept invitations
-* role.expiry-period & role.signing-period
+* role.expiry-period & role.signing-period (for all online roles)
   * used by repo to decide when new timestamp/snapshot is needed and to decide the new expiry date
   * for other roles could be used to decide what expiry dates are allowed by repo
-* signed.expiry-period & signed.signing-period (_could_ be in signed, but maybe in role to tie with other delegation changes)
+* signed.expiry-period & signed.signing-period (for all offline roles)
   * used by repo to decide when to start a signing event
   * used by tool to bump version
 
@@ -101,13 +102,14 @@ Custom metadata and how it is used
   * merge to main (or create PR, this could be configurable)
   * Failure to sign or merge should lead to a GitHub issue, with root signers
     getting notified
-1. expiry-checks
+1. expiry-check
   * check each offline role
     * if signing-period for a role is reached, start a signing event (branch)
     * construct the version bump commit in the branch
       (alternatively, let signing tool create the version bump)
-  * check snapshot & timestamp: 
+  * check each online role
     * if signing-period for a role is reached, create new version and sign
+      (if snapshot changed, also bump timestamp)
 1. signing-event
    Uses repo software to define the state of the signing event.
    Possible signing event states include:
