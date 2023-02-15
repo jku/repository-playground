@@ -77,20 +77,20 @@ git-integration like doing a pull automatically).
 
 ## Custom metadata 
 
-Custom metadata and how it is used
+Custom metadata and how it is used. All custom field names should be prefixed with "x-playground-" to
+A) make it clear it's custom and B) make collisions unlikely.
 
-* key.signer-username
+* key.x-playground-keyowner
   * used by tool to know when to sign
   * used by repo to notify @username
-* key.online-uri
+* key.x-playground-online-uri
   * used by repo to sign with online key
-* role.invites
+* role.x-playground-invited-signers
   * used by repo to notify invited usernames
   * used by tool to accept invitations
-* role.expiry-period & role.signing-period (for all online roles)
+* role.x-playground-expiry-period (for all online roles)
   * used by repo to decide when new timestamp/snapshot is needed and to decide the new expiry date
-  * for other roles could be used to decide what expiry dates are allowed by repo
-* signed.expiry-period & signed.signing-period (for all offline roles)
+* signed.x-playground-expiry-period & signed.x-playground-signing-period (for all offline roles)
   * used by repo to decide when to start a signing event
   * used by tool to bump version
 

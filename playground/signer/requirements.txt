@@ -1,0 +1,3 @@
+securesystemslib[gcpkms,hsm] 
+git+https://github.com/theupdateframework/python-tuf
+click
