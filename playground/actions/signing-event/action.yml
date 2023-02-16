@@ -1,0 +1,56 @@
+name: 'Signing event'
+description: 'TUF signing event management for Repository Playground'
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435
+      with:
+        python-version: 3.11
+
+    - run: pip install -r $GITHUB_ACTION_PATH/../../repo/requirements.txt
+      shell: bash
+
+    - run: |
+        FORK=$(git merge-base origin/main $GITHUB_SHA)
+        echo "Forking point of this signing event is $FORK"
+        echo "FORK=$FORK" >> $GITHUB_ENV
+      shell: bash
+
+    - id: find-issue
+      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+      with:
+        script: |
+          const fs = require('fs')
+
+          issue = 0
+          if (process.env.FORK == process.env.GITHUB_SHA) {
+            console.log("Signing event branch has no commits")
+          } else {
+            const repo = context.repo.owner + "/" + context.repo.repo
+            const issues = await github.rest.search.issuesAndPullRequests({
+              q: "label:${{github.ref_name}}+state:open+type:issue+repo:" + repo,
+            })
+            if (issues.data.total_count > 1) {
+              core.setFailed("Found more than one issue with same label")
+            } else if (issues.data.total_count == 0) {
+              const response = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Signing event: ${{github.ref_name}}",
+                body: "TODO: document signing event here",
+                labels: ["${{github.ref_name}}"],
+              })
+              issue = response.data.number
+              console.log("Created issue #" + issue)
+            } else {
+              issue = issues.data.items[0].number
+              console.log("Found existing issue #" + issue)
+            }
+          }
+
+          // can't use output as next step input in composite action, so use the environment
+          fs.appendFileSync(process.env.GITHUB_ENV, "ISSUE=" + issue + "\n");
