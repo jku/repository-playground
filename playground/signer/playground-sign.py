@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from copy import deepcopy
+import subprocess
 import click
 from configparser import ConfigParser
 import logging
@@ -128,11 +129,18 @@ def cli(verbose: int):
     """Signing tool for repository-playground."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    # TODO: don't assume we're in project root dir
-    config = ConfigParser()
-    config.read(".playground-sign.ini")
+    cmd = ["git", "rev-parse", "--show-toplevel"]
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, check=True, text=True)
+    toplevel = proc.stdout.strip()
+    metadata_dir = os.path.join(toplevel, "metadata")
 
-    # TODO: create config if missing
+    # TODO: check that this is a playground repository,
+    # so we don't start creating metadata in random git repos
+
+    config = ConfigParser()
+    config.read(os.path.join(toplevel, ".playground-sign.ini"))
+
+    # TODO: create config if missing, ask user for values
     if not config or "settings" not in config:
         raise RuntimeError("Settings file not found")
 
@@ -144,8 +152,7 @@ def cli(verbose: int):
     # TODO: if config is not set, complain/ask the user?
     user_name = config["settings"]["user-name"]
 
-    # TODO: don't assume we're in project root dir
-    repo = SignerRepository("metadata", user_name, _get_signing_key_input)
+    repo = SignerRepository(metadata_dir, user_name, _get_signing_key_input)
     if repo.state == SignerState.UNINITIALIZED:
         click.echo("Creating a new Playground TUF repository")
 
@@ -153,9 +160,9 @@ def cli(verbose: int):
         targets_config = _get_offline_input("targets", deepcopy(root_config))
         online_config = _get_online_input(OnlineConfig(None, None, 1, root_config.expiry_period))
 
-        logger.debug("root: %s", root_config)
-        logger.debug("targets: %s",targets_config)
-        logger.debug("online: %s", online_config)
+        logger.debug("Root input: %s", root_config)
+        logger.debug("Targets input: %s",targets_config)
+        logger.debug("Online input: %s", online_config)
 
         repo.initialize(root_config, targets_config, online_config)
     else:
