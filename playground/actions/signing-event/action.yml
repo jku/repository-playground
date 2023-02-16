@@ -1,0 +1,7 @@
+name: 'Signing event'
+description: 'TUF signing event management for Repository Playground'
+runs:
+  using: "composite"
+  steps:
+    - run: echo Hello
+      shell: bash
