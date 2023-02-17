@@ -11,7 +11,7 @@ runs:
       with:
         python-version: 3.11
 
-    - run: pip install -r $GITHUB_ACTION_PATH/../../repo/requirements.txt
+    - run: pip install $GITHUB_ACTION_PATH/../../repo/
       shell: bash
 
     - run: |
@@ -19,6 +19,11 @@ runs:
         echo "Forking point of this signing event is $FORK"
         echo "FORK=$FORK" >> $GITHUB_ENV
       shell: bash
+
+    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      with:
+        ref: ${{ env.FORK }}
+        path: "known-good"
 
     - id: find-issue
       uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
@@ -32,7 +37,7 @@ runs:
           } else {
             const repo = context.repo.owner + "/" + context.repo.repo
             const issues = await github.rest.search.issuesAndPullRequests({
-              q: "label:${{github.ref_name}}+state:open+type:issue+repo:" + repo,
+              q: "label:" + process.env.GITHUB_REF_NAME + "+state:open+type:issue+repo:" + repo,
             })
             if (issues.data.total_count > 1) {
               core.setFailed("Found more than one issue with same label")
@@ -40,9 +45,9 @@ runs:
               const response = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: "Signing event: ${{github.ref_name}}",
+                title: "Signing event: " + process.env.GITHUB_REF_NAME,
                 body: "TODO: document signing event here",
-                labels: ["${{github.ref_name}}"],
+                labels: [process.env.GITHUB_REF_NAME],
               })
               issue = response.data.number
               console.log("Created issue #" + issue)
@@ -54,3 +59,51 @@ runs:
 
           // can't use output as next step input in composite action, so use the environment
           fs.appendFileSync(process.env.GITHUB_ENV, "ISSUE=" + issue + "\n");
+
+    - run: |
+        echo "### Current signing event state" >> status-output
+        if test -f "metadata/root.json"; then
+          if playground-status known-good/ >> status-output;  then
+            STATUS="signed"
+          else
+            STATUS="unsigned"
+          fi
+        else
+          echo "Repository does not exist yet" >> status-output
+          STATUS="uninitialized"
+        fi
+
+        cat status-output
+        echo "STATUS=$STATUS"
+        echo "STATUS=$STATUS" >> $GITHUB_ENV
+      shell: bash
+
+    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+      with:
+        script: |
+
+          if (process.env.ISSUE == 0) {
+            console.log("Skipping issue update as issue was not set")
+          } else {
+            const fs = require('fs')
+            body = fs.readFileSync('./status-output').toString()
+            if (process.env.STATUS == 'signed') {
+              // TODO don't create if PR already exists
+              const pull = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: process.env.GITHUB_REF_NAME,
+                base: 'main',
+                title: 'Signing event ' + process.env.GITHUB_REF_NAME,
+                body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + ', see issue #' + process.env.ISSUE,
+              })
+              body += "### Pull request filed\n\n"
+              body += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
+            }
+            github.rest.issues.createComment({
+              issue_number: process.env.ISSUE,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            })
+          }
