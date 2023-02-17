@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+# Copyright 2023 Google LLC
+
+"""playground-sign: A command line signing tool for Repository Playground"""
 
 from copy import deepcopy
 import random
@@ -10,7 +12,12 @@ import logging
 import os
 from securesystemslib.signer import GCPSigner, HSMSigner, Key
 
-from _signer_repository import OnlineConfig, OfflineConfig, SignerRepository, SignerState
+from playground_sign._signer_repository import (
+    OnlineConfig,
+    OfflineConfig,
+    SignerRepository,
+    SignerState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +230,3 @@ def cli(verbose: int, signing_event: str):
     # Return to original branch
     _git(["checkout", "-"])
     # TODO delete temp branch?
-
-
-if __name__ == "__main__":
-    cli()

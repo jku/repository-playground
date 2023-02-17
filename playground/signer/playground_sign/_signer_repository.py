@@ -1,4 +1,4 @@
-# Copyright 2010 Google LLC
+# Copyright 2023 Google LLC
 
 """Internal repository module for playground signer tool"""
 
