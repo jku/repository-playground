@@ -40,7 +40,7 @@ class OnlineConfig:
 
 @dataclass
 class OfflineConfig:
-    invited_signers: list[str]
+    signers: list[str]
     threshold: int
     expiry_period: int
     signing_period: int
@@ -49,11 +49,11 @@ class OfflineConfig:
 class SignerRepository(Repository):
     """A repository implementation for the signer tool"""
 
-    def __init__(self, dir: str, user_name: str, signing_key_func: Callable[[], Key]):
+    def __init__(self, dir: str, user_name: str, secret_func: Callable[[str, str], str]):
         self._dir = dir
         self.user_name = user_name
         self.state = SignerState.NO_ACTION
-        self.get_signing_key = signing_key_func
+        self.get_secret = secret_func
 
         if not os.path.exists(os.path.join(self._dir, "root.json")):
             self.state = SignerState.UNINITIALIZED
@@ -89,7 +89,7 @@ class SignerRepository(Repository):
 
     def _sign(self, role: str, md: Metadata, key: Key) -> None:
         def secret_handler(secret: str) -> str:
-            return click.prompt(f"Enter {secret} to sign {role}", hide_input=True)
+            return self.get_secret(secret, role)
 
         signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
         md.sign(signer, True)
@@ -157,41 +157,25 @@ class SignerRepository(Repository):
     def snapshot_info(self) -> MetaFile:
         raise NotImplementedError
 
-    def initialize(
-        self, root_config: OfflineConfig, targets_config: OfflineConfig, online_config: OnlineConfig
-    ):
-        if self.user_name in root_config.invited_signers or self.user_name in targets_config.invited_signers:
-            signing_key = self.get_signing_key()
-            signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
+    def get_online_config(self) -> OnlineConfig:
+        root: Root = self.open("root").signed
 
+        timestamp_role = root.get_delegated_role("timestamp")
+        snapshot_role = root.get_delegated_role("snapshot")
+        timestamp_expiry = timestamp_role.unrecognized_fields["x-playground-expiry-period"]
+        snapshot_expiry = snapshot_role.unrecognized_fields["x-playground-expiry-period"]
+        key = root.get_key(timestamp_role.keyids[0])
+        uri = key.unrecognized_fields["x-playground-online-uri"]
+
+        return OnlineConfig(key, uri, timestamp_expiry, snapshot_expiry)
+
+    def set_online_config(self, online_config: OnlineConfig):
         online_config.key.unrecognized_fields["x-playground-online-uri"] = online_config.uri
 
-        # Create root metadata
         with self.edit("root") as root:
-            root.unrecognized_fields["x-playground-expiry-period"] = root_config.expiry_period
-            root.unrecognized_fields["x-playground-signing-period"] = root_config.signing_period
-
             # Add online keys (and user key if they are invited)
             root.add_key(online_config.key, "timestamp")
             root.add_key(online_config.key, "snapshot")
-            if self.user_name in root_config.invited_signers:
-                root.add_key(signing_key, "root")
-                root_config.invited_signers.remove(self.user_name)
-            if self.user_name in targets_config.invited_signers:
-                root.add_key(signing_key, "targets")
-                targets_config.invited_signers.remove(self.user_name)
-
-            # Invite signers
-            if root_config.invited_signers:
-                root.roles["root"].unrecognized_fields[
-                    "x-playground-invited-signers"
-                ] = targets_config.invited_signers
-            root.roles["root"].threshold = root_config.threshold
-            if targets_config.invited_signers:
-                root.roles["targets"].unrecognized_fields[
-                    "x-playground-invited-signers"
-                ] = targets_config.invited_signers
-            root.roles["targets"].threshold = targets_config.threshold
 
             # set online role periods
             root.roles["timestamp"].unrecognized_fields[
@@ -201,7 +185,68 @@ class SignerRepository(Repository):
                 "x-playground-expiry-period"
             ] = online_config.snapshot_expiry
 
-        # Create Targets metadata
-        with self.edit("targets") as targets:
-            targets.unrecognized_fields["x-playground-expiry-period"] = targets_config.expiry_period
-            targets.unrecognized_fields["x-playground-signing-period"] = targets_config.expiry_period
+    def get_role_config(self, rolename: str) -> OfflineConfig:
+        if rolename in ["timestamp", "snapshot"]:
+            raise ValueError("online roles not supported")
+
+        md = self.open(rolename)
+        if rolename == "root":
+            delegator:Metadata[Root|Targets] = md
+        elif rolename == "targets":
+            delegator = self.open("root")
+        else:
+            delegator = self.open("targets")
+        role = delegator.signed.get_delegated_role(rolename)
+
+        expiry = md.signed.unrecognized_fields["x-playground-expiry-period"]
+        signing = md.signed.unrecognized_fields["x-playground-signing-period"]
+        threshold = role.threshold
+        signers = []
+        if "x-playground-invited-signers" in role.unrecognized_fields:
+            signers.extend(role.unrecognized_fields["x-playground-invited-signers"])
+        for keyid in role.keyids:
+            try:
+                key = delegator.signed.get_key(keyid)
+                signers.append(key.unrecognized_fields["x-playground-keyowner"])
+            except ValueError:
+                pass
+
+        return OfflineConfig(signers, threshold, expiry, signing)
+
+    def set_role_config(self, rolename: str, config: OfflineConfig, signing_key: Key | None):
+        if rolename in ["timestamp", "snapshot"]:
+            raise ValueError("online roles not supported")
+
+        # Modify the delegation
+        if rolename in ["root", "targets"]:
+            delegator_name = "root"
+        else:
+            delegator_name = "targets"
+
+        with self.edit(delegator_name) as delegator:
+            # Compare existing signers and new list
+            role = delegator.get_delegated_role(rolename)
+            for keyid in role.keyids:
+                key = delegator.get_key(keyid)
+                if key.unrecognized_fields["x-playground-keyowner"] in config.signers:
+                    # signer is still a signer
+                    config.signers.remove(key.unrecognized_fields["x-playground-keyowner"])
+                else:
+                    # signer was removed
+                    delegator.revoke_key(keyid, rolename)
+
+            if self.user_name in config.signers:
+                signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
+                delegator.add_key(signing_key, rolename)
+                config.signers.remove(self.user_name)
+
+            # Handle new signers
+            if config.signers:
+                role.unrecognized_fields["x-playground-invited-signers"] = config.signers
+                role.threshold = config.threshold
+
+        # Modify the role itself
+        # TODO only save new version if values change
+        with self.edit(rolename) as signed:
+            signed.unrecognized_fields["x-playground-expiry-period"] = config.expiry_period
+            signed.unrecognized_fields["x-playground-signing-period"] = config.signing_period

@@ -1,1 +1,1 @@
-from playground_sign.main import cli
+from playground_sign.delegate import delegate
