@@ -132,7 +132,6 @@ class PlaygroundRepository(Repository):
         prev_status = None
 
         # Find out the signing status of the role
-        statuses: list[SigningStatus] = []
         if rolename == "root":
             # new root must be signed so it satisfies both old and new root
             if prev_md:

@@ -19,3 +19,4 @@ dependencies = [
 
 [project.scripts]
 playground-delegate = "playground_sign:delegate"
+playground-sign = "playground_sign:sign"

@@ -4,15 +4,16 @@
 
 from dataclasses import dataclass
 from enum import Enum, unique
+import json
 import subprocess
-import click
 import os
 from datetime import datetime, timedelta
 from typing import Callable
+from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, Signed, Targets
-from tuf.api.serialization.json import JSONSerializer
+from tuf.api.metadata import Key, Metadata, MetaFile, Root, Targets
+from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository
 
 def unmodified_in_git(filepath: str) -> bool:
@@ -28,6 +29,8 @@ def unmodified_in_git(filepath: str) -> bool:
 class SignerState(Enum):
     NO_ACTION = 0,
     UNINITIALIZED = 1,
+    INVITED = 2,
+    SIGNATURE_NEEDED = 3,
 
 
 @dataclass
@@ -50,13 +53,52 @@ class SignerRepository(Repository):
     """A repository implementation for the signer tool"""
 
     def __init__(self, dir: str, user_name: str, secret_func: Callable[[str, str], str]):
-        self._dir = dir
         self.user_name = user_name
-        self.state = SignerState.NO_ACTION
-        self.get_secret = secret_func
+        self._dir = dir
+        self._get_secret = secret_func
+        self._state_config = {"invites": {}, "unsigned": {}}
 
+        # read signing event state file
+        state_file = os.path.join(self._dir, ".signing-event-state")
+        if os.path.exists(state_file):
+            with open(state_file) as f:
+                self._state_config  = json.load(f)
+
+        # Find current state
         if not os.path.exists(os.path.join(self._dir, "root.json")):
             self.state = SignerState.UNINITIALIZED
+        elif self.invites:
+            self.state = SignerState.INVITED
+        elif self.unsigned:
+            self.state = SignerState.SIGNATURE_NEEDED
+        else:
+            self.state = SignerState.NO_ACTION
+
+    @property
+    def invites(self) -> list[str]:
+        try:
+            return self._state_config["invites"][self.user_name]
+        except KeyError:
+            return []
+
+    @property
+    def unsigned(self) -> list[str]:
+        try:
+            return self._state_config["unsigned"][self.user_name]
+        except KeyError:
+            return []
+
+    def _user_signature_needed(self, rolename: str) -> bool:
+        md = self.open(rolename)
+        for key in self._get_keys(rolename):
+            keyowner = key.unrecognized_fields["x-playground-keyowner"]
+            if keyowner == self.user_name:
+                try:
+                    payload = CanonicalJSONSerializer().serialize(md.signed)
+                    key.verify_signature(md.signatures[key.keyid], payload)
+                except (KeyError, UnverifiedSignatureError):
+                    return True
+        return False
 
     def _get_filename(self, role: str) -> str:
         return os.path.join(self._dir, f"{role}.json")
@@ -68,28 +110,25 @@ class SignerRepository(Repository):
         # TODO use custom metadata, see ../IMPLEMENTATION-NOTES.md
         return datetime.utcnow() + timedelta(days=365)
 
-    def _get_keys(self, role: str, signed: Signed) -> list[Key]:
+    def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
-
-        if role == "root":
-            pass # use the Signed we have already
-        elif role in ["timestamp", "snapshot", "targets"]:
-            signed = self.open("root").signed
+        if role in ["root", "timestamp", "snapshot", "targets"]:
+            delegator: Root|Targets = self.open("root").signed
         else:
-            signed = self.open("targets").signed
+            delegator = self.open("targets").signed
 
-        r = signed.get_delegated_role(role)
+        r = delegator.get_delegated_role(role)
         keys = []
         for keyid in r.keyids:
             try:
-                keys.append(signed.get_key(keyid))
+                keys.append(delegator.get_key(keyid))
             except ValueError:
                 pass
         return keys
 
     def _sign(self, role: str, md: Metadata, key: Key) -> None:
         def secret_handler(secret: str) -> str:
-            return self.get_secret(secret, role)
+            return self._get_secret(secret, role)
 
         signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
         md.sign(signer, True)
@@ -130,15 +169,16 @@ class SignerRepository(Repository):
         filename = self._get_filename(role)
 
         # Avoid bumping version within a single git commit
-        # TODO this should maybe compare to the forking point of this signing event
+        # TODO this should compare to the forking point of this signing event
         # and bump version only once within the signing event
+        # status() requires the comparison anyway so should not be a problem?
         if unmodified_in_git(filename):
             md.signed.version += 1
 
         md.signed.expires = self._get_expiry(role)
 
         md.signatures.clear()
-        for key in self._get_keys(role, md.signed):
+        for key in self._get_keys(role):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
             if keyowner == self.user_name:
                 self._sign(role, md, key)
@@ -173,17 +213,15 @@ class SignerRepository(Repository):
         online_config.key.unrecognized_fields["x-playground-online-uri"] = online_config.uri
 
         with self.edit("root") as root:
-            # Add online keys (and user key if they are invited)
+            # Add online keys
             root.add_key(online_config.key, "timestamp")
             root.add_key(online_config.key, "snapshot")
 
             # set online role periods
-            root.roles["timestamp"].unrecognized_fields[
-                "x-playground-expiry-period"
-            ] = online_config.timestamp_expiry
-            root.roles["snapshot"].unrecognized_fields[
-                "x-playground-expiry-period"
-            ] = online_config.snapshot_expiry
+            role = root.get_delegated_role("timestamp")
+            role.unrecognized_fields["x-playground-expiry-period"] = online_config.timestamp_expiry
+            role = root.get_delegated_role("snapshot")
+            role.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
 
     def get_role_config(self, rolename: str) -> OfflineConfig:
         if rolename in ["timestamp", "snapshot"]:
@@ -202,8 +240,11 @@ class SignerRepository(Repository):
         signing = md.signed.unrecognized_fields["x-playground-signing-period"]
         threshold = role.threshold
         signers = []
-        if "x-playground-invited-signers" in role.unrecognized_fields:
-            signers.extend(role.unrecognized_fields["x-playground-invited-signers"])
+        # Include current invitees on config
+        for signer, rolenames in self._state_config["invites"].items():
+            if rolename in rolenames:
+                signers.append(signer)
+        # Include current signers on config
         for keyid in role.keyids:
             try:
                 key = delegator.signed.get_key(keyid)
@@ -217,14 +258,14 @@ class SignerRepository(Repository):
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError("online roles not supported")
 
-        # Modify the delegation
         if rolename in ["root", "targets"]:
             delegator_name = "root"
         else:
             delegator_name = "targets"
 
+        # TODO only save new version if values change
         with self.edit(delegator_name) as delegator:
-            # Compare existing signers and new list
+            # Handle existing signers
             role = delegator.get_delegated_role(rolename)
             for keyid in role.keyids:
                 key = delegator.get_key(keyid)
@@ -235,18 +276,39 @@ class SignerRepository(Repository):
                     # signer was removed
                     delegator.revoke_key(keyid, rolename)
 
+            # Add user themselves
             if self.user_name in config.signers:
                 signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
                 delegator.add_key(signing_key, rolename)
-                config.signers.remove(self.user_name)
 
-            # Handle new signers
-            if config.signers:
-                role.unrecognized_fields["x-playground-invited-signers"] = config.signers
-                role.threshold = config.threshold
+            role.threshold = config.threshold
 
         # Modify the role itself
         # TODO only save new version if values change
         with self.edit(rolename) as signed:
             signed.unrecognized_fields["x-playground-expiry-period"] = config.expiry_period
             signed.unrecognized_fields["x-playground-signing-period"] = config.signing_period
+
+        # Handle new invitations
+        for signer in config.signers:
+            if signer not in self._state_config["invites"]:
+                self._state_config["invites"][signer] = []
+            if rolename not in self._state_config["invites"][signer]:
+                self._state_config["invites"][signer].append(rolename)
+        with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
+            f.write(json.dumps(self._state_config))
+
+    def status(self, rolename: str) -> str:
+        return "TODO: Describe the changes in the signing event"
+
+    def sign(self, rolename: str):
+        """Sign without payload changes"""
+        md = self.open(rolename)
+        for key in self._get_keys(rolename):
+            keyowner = key.unrecognized_fields["x-playground-keyowner"]
+            if keyowner == self.user_name:
+                self._sign(rolename, md, key)
+                self._write(rolename, md)
+                return
+
+        assert(f"{rolename} signing key for {self.user_name} not found")
