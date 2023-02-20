@@ -1,12 +1,9 @@
 from dataclasses import dataclass
+import json
 import os
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
-from securesystemslib.signer import Signer
 from securesystemslib.exceptions import UnverifiedSignatureError
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Snapshot, Targets, Timestamp
-from tuf.api.serialization.json import JSONSerializer
+from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
 from tuf.repository import Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer
 
@@ -16,6 +13,7 @@ from tuf.api.serialization.json import CanonicalJSONSerializer
 # TODO; Signing status probably should include an error message when valid=False
 @dataclass
 class SigningStatus:
+    invites: set[str]
     signed: set[str]
     missing: set[str]
     threshold: int
@@ -33,8 +31,31 @@ class PlaygroundRepository(Repository):
         self._dir = dir
         self._prev_dir = prev_dir
 
+        # read signing event state file
+        self._state_config = {"invites": {}, "unsigned": {}}
+        state_file = os.path.join(self._dir, ".signing-event-state")
+        if os.path.exists(state_file):
+            with open(state_file) as f:
+                self._state_config  = json.load(f)
+
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
+
+    def _get_keys(self, role: str) -> list[Key]:
+        """Return public keys for delegated role"""
+        if role in ["root", "timestamp", "snapshot", "targets"]:
+            delegator: Root|Targets = self.open("root").signed
+        else:
+            delegator = self.open("targets").signed
+
+        r = delegator.get_delegated_role(role)
+        keys = []
+        for keyid in r.keyids:
+            try:
+                keys.append(delegator.get_key(keyid))
+            except ValueError:
+                pass
+        return keys
 
     def open(self, role:str) -> Metadata:
         """Return existing metadata, or create new metadata
@@ -70,7 +91,7 @@ class PlaygroundRepository(Repository):
         raise NotImplementedError
 
     @property
-    def targets_infos(self) -> Dict[str, MetaFile]:
+    def targets_infos(self) -> dict[str, MetaFile]:
         """Implementation of Repository.target_infos"""
         raise NotImplementedError
 
@@ -79,7 +100,7 @@ class PlaygroundRepository(Repository):
         """Implementation of Repository.snapshot_info"""
         raise NotImplementedError
 
-    def open_prev(self, role:str) -> Optional[Metadata]:
+    def open_prev(self, role:str) -> Metadata | None:
         """Return known good metadata for role (if it exists)"""
         prev_fname = f"{self._prev_dir}/{role}.json"
         if os.path.exists(prev_fname):
@@ -89,25 +110,28 @@ class PlaygroundRepository(Repository):
         return None
 
     def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
+        invites = set()
         sigs = set()
         missing_sigs = set()
+
+        # Build list of invites
+        for keyowner, rolenames in self._state_config["invites"].items():
+            if rolename in rolenames:
+                invites.add(keyowner)
 
         # Build lists of signed signers and not signed signers
         delegate = self.open(rolename)
         prev_delegate = self.open_prev(rolename)
-        payload = CanonicalJSONSerializer().serialize(delegate.signed)
         role = delegator.signed.get_delegated_role(rolename)
-        for keyid in role.keyids:
-            try:
-                key: Key = delegator.signed.get_key(keyid)
-            except ValueError:
-                continue
 
-            try:
-                key.verify_signature(delegate.signatures[keyid], payload)
-                sigs.add(key.unrecognized_fields["x-playground-keyowner"])
-            except (KeyError, UnverifiedSignatureError):
-                missing_sigs.add(key.unrecognized_fields["x-playground-keyowner"])
+        for keyowner, rolenames in self._state_config["unsigned"].items():
+            if rolename in rolenames:
+                missing_sigs.add(keyowner)
+
+        for key in self._get_keys(rolename):
+            keyowner = key.unrecognized_fields["x-playground-keyowner"]
+            if keyowner not in missing_sigs:
+                sigs.add(keyowner)
 
         # Just to be sure: double check that delegation threshold is reached
         valid = True
@@ -122,7 +146,7 @@ class PlaygroundRepository(Repository):
 
         # TODO more checks here
 
-        return SigningStatus(sigs, missing_sigs, role.threshold, valid)
+        return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid)
 
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         if rolename in ["timestamp", "snapshot"]:
@@ -143,3 +167,22 @@ class PlaygroundRepository(Repository):
             delegator = self.open("targets")
 
         return self._get_signing_status(delegator, rolename), prev_status
+
+    def request_signatures(self, rolename: str):
+        md = self.open(rolename)
+        payload = CanonicalJSONSerializer().serialize(md.signed)
+        updated = False
+        for key in self._get_keys(rolename):
+            try:
+                key.verify_signature(md.signatures[key.keyid], payload)
+            except (KeyError, UnverifiedSignatureError):
+                keyowner = key.unrecognized_fields["x-playground-keyowner"]
+                if keyowner not in self._state_config["unsigned"]:
+                    self._state_config["unsigned"][keyowner] = []
+                if rolename not in self._state_config["unsigned"][keyowner]:
+                    self._state_config["unsigned"][keyowner].append(rolename)
+                    updated = True
+
+        if updated:
+            with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
+                f.write(json.dumps(self._state_config))

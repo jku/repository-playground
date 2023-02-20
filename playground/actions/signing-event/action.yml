@@ -61,9 +61,29 @@ runs:
           fs.appendFileSync(process.env.GITHUB_ENV, "ISSUE=" + issue + "\n");
 
     - run: |
+        echo "Requesting signatures"
+        if test -f "metadata/root.json"; then
+          playground-request-signatures
+        fi
+      shell: bash
+
+    - run: |
+        if git diff --quiet; then
+          echo "No signatures requested"
+        else
+          echo "Commiting requested signatures..."
+          git config user.name "Playground Repository"
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -a -m "Requesting signatures from signing event signers"
+          git show
+          git push
+        fi
+      shell: bash
+
+    - run: |
         echo "### Current signing event state" >> status-output
         if test -f "metadata/root.json"; then
-          if playground-status known-good/ >> status-output;  then
+          if playground-status known-good/ $GITHUB_REF_NAME >> status-output;  then
             STATUS="signed"
           else
             STATUS="unsigned"
@@ -81,7 +101,6 @@ runs:
     - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
       with:
         script: |
-
           if (process.env.ISSUE == 0) {
             console.log("Skipping issue update as issue was not set")
           } else {

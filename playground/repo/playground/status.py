@@ -2,7 +2,6 @@
 
 """Command line signing event status output tool for Repository Playground CI"""
 
-from contextlib import contextmanager
 import filecmp
 from glob import glob
 import os
@@ -41,7 +40,8 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.argument("known-good-dir")
-def status_cli(verbose: int, known_good_dir: str) -> None:
+@click.argument("event-name")
+def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
     """Status markdown output tool for Repository Playground CI"""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
@@ -50,12 +50,11 @@ def status_cli(verbose: int, known_good_dir: str) -> None:
     good_dir = os.path.join(known_good_dir, signing_event_dir)
     failures = 0
 
+    # Print status for each role
     repo = PlaygroundRepository(signing_event_dir, good_dir)
     for role in _find_changed_roles(good_dir, signing_event_dir):
         status, prev_status = repo.status(role)
-        role_is_valid = status.valid
-        if not role_is_valid:
-            failures += 1
+        role_is_valid = status.valid and not status.invites
         sig_counts = f"{len(status.signed)}/{status.threshold}"
         signed = status.signed
         missing = status.missing
@@ -66,17 +65,26 @@ def status_cli(verbose: int, known_good_dir: str) -> None:
             signed = signed | prev_status.signed
             missing = missing | prev_status.missing
 
+        if not role_is_valid:
+            failures += 1
+
         # TODO: get reasons for verify failure from repo, print that
         if role_is_valid:
             click.echo(f"#### :heavy_check_mark: {role}")
             click.echo(f"{role} is verified and signed by {sig_counts} signers ({', '.join(signed)}).")
+        elif status.invites:
+            click.echo(f"#### :x: {role}")
+            click.echo(f"{role} has open invites ({', '.join(status.invites)}).")
+            click.echo(f"Invitees can accept the invitation by running `playground-sign {event_name}`")
         elif signed:
             click.echo(f"#### :x:{role}")
             click.echo(f"{role} is not yet verified. It is signed by {sig_counts} signers ({', '.join(signed)}).")
         else:
             click.echo(f"#### :x: {role}")
             click.echo(f"{role} is unsigned and not yet verified")
-        if missing:
+
+        if missing and not status.invites:
             click.echo(f"Still missing signatures from {', '.join(missing)}")
+            click.echo(f"Signers can sign these changes by running `playground-sign {event_name}`")
     
     sys.exit(failures)
