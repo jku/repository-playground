@@ -36,7 +36,6 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str
 
     return changed_roles
 
-# TODO is good dir needed here?
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
@@ -50,6 +49,9 @@ def request_signatures(verbose: int, known_good_dir: str) -> None:
     """
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    repo = PlaygroundRepository("metadata", good_dir)
+    signing_event_dir = "metadata"
+    good_dir = os.path.join(known_good_dir, signing_event_dir)
+
+    repo = PlaygroundRepository("metadata")
     for role in _find_changed_roles(good_dir, signing_event_dir):
         repo.request_signatures(role)

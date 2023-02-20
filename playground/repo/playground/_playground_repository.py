@@ -13,7 +13,7 @@ from tuf.api.serialization.json import CanonicalJSONSerializer
 # TODO; Signing status probably should include an error message when valid=False
 @dataclass
 class SigningStatus:
-    invites: set[str]
+    invites: set[str] # invites to _delegations_ of the role
     signed: set[str]
     missing: set[str]
     threshold: int
@@ -113,14 +113,19 @@ class PlaygroundRepository(Repository):
         invites = set()
         sigs = set()
         missing_sigs = set()
+        delegate = self.open(rolename)
 
-        # Build list of invites
+        # Build list of invites for all delegated roles of the delegate
         for keyowner, rolenames in self._state_config["invites"].items():
-            if rolename in rolenames:
-                invites.add(keyowner)
+            if rolename == "root":
+                if set(rolenames).intersection(delegate.signed.roles):
+                    invites.add(keyowner)
+            elif rolename == "targets":
+                if delegate.signed.delegations and set(rolenames).intersection(delegate.signed.delegations.roles):
+                    invites.add(keyowner)
 
         # Build lists of signed signers and not signed signers
-        delegate = self.open(rolename)
+        # This relies on "unsigned" state configuration being up-to-date
         prev_delegate = self.open_prev(rolename)
         role = delegator.signed.get_delegated_role(rolename)
 
@@ -173,10 +178,16 @@ class PlaygroundRepository(Repository):
         payload = CanonicalJSONSerializer().serialize(md.signed)
         updated = False
         for key in self._get_keys(rolename):
+            keyowner = key.unrecognized_fields["x-playground-keyowner"]
             try:
                 key.verify_signature(md.signatures[key.keyid], payload)
+                if keyowner in self._state_config["unsigned"] and rolename in self._state_config["unsigned"][keyowner]:
+                    self._state_config["unsigned"][keyowner].remove(rolename)
+                    if not self._state_config["unsigned"][keyowner]:
+                        del self._state_config["unsigned"][keyowner]
+                    updated = True
+
             except (KeyError, UnverifiedSignatureError):
-                keyowner = key.unrecognized_fields["x-playground-keyowner"]
                 if keyowner not in self._state_config["unsigned"]:
                     self._state_config["unsigned"][keyowner] = []
                 if rolename not in self._state_config["unsigned"][keyowner]:
@@ -185,4 +196,4 @@ class PlaygroundRepository(Repository):
 
         if updated:
             with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
-                f.write(json.dumps(self._state_config))
+                f.write(json.dumps(self._state_config, indent=2))

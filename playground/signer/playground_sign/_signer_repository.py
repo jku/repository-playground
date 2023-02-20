@@ -289,14 +289,22 @@ class SignerRepository(Repository):
             signed.unrecognized_fields["x-playground-expiry-period"] = config.expiry_period
             signed.unrecognized_fields["x-playground-signing-period"] = config.signing_period
 
+        # Handle removed invitations
+        for invited_signer, invited_roles in self._state_config["invites"].items():
+            if invited_signer not in config.signers:
+                if rolename in invited_roles:
+                    invited_roles.remove(rolename)
+                # TODO remve empty invited_roles lists?
+
         # Handle new invitations
         for signer in config.signers:
             if signer not in self._state_config["invites"]:
                 self._state_config["invites"][signer] = []
             if rolename not in self._state_config["invites"][signer]:
                 self._state_config["invites"][signer].append(rolename)
+
         with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
-            f.write(json.dumps(self._state_config))
+            f.write(json.dumps(self._state_config, indent=2))
 
     def status(self, rolename: str) -> str:
         return "TODO: Describe the changes in the signing event"

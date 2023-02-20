@@ -63,7 +63,7 @@ runs:
     - run: |
         echo "Requesting signatures"
         if test -f "metadata/root.json"; then
-          playground-request-signatures
+          playground-request-signatures known-good/
         fi
       shell: bash
 

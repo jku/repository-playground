@@ -54,7 +54,7 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
     repo = PlaygroundRepository(signing_event_dir, good_dir)
     for role in _find_changed_roles(good_dir, signing_event_dir):
         status, prev_status = repo.status(role)
-        role_is_valid = status.valid and not status.invites
+        role_is_valid = status.valid
         sig_counts = f"{len(status.signed)}/{status.threshold}"
         signed = status.signed
         missing = status.missing
@@ -65,17 +65,17 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
             signed = signed | prev_status.signed
             missing = missing | prev_status.missing
 
-        if not role_is_valid:
+        if not role_is_valid or status.invites:
             failures += 1
 
         # TODO: get reasons for verify failure from repo, print that
-        if role_is_valid:
+        if status.invites:
+            click.echo(f"#### :x: {role}")
+            click.echo(f"{role} delegations have open invites ({', '.join(status.invites)}).")
+            click.echo(f"Invitees can accept the invitations by running `playground-sign {event_name}`")
+        elif role_is_valid:
             click.echo(f"#### :heavy_check_mark: {role}")
             click.echo(f"{role} is verified and signed by {sig_counts} signers ({', '.join(signed)}).")
-        elif status.invites:
-            click.echo(f"#### :x: {role}")
-            click.echo(f"{role} has open invites ({', '.join(status.invites)}).")
-            click.echo(f"Invitees can accept the invitation by running `playground-sign {event_name}`")
         elif signed:
             click.echo(f"#### :x:{role}")
             click.echo(f"{role} is not yet verified. It is signed by {sig_counts} signers ({', '.join(signed)}).")
