@@ -19,6 +19,50 @@ class SigningStatus:
     threshold: int
     valid: bool
 
+class SigningEventState:
+    """Class to manage the .signing-event-state file"""
+    def __init__(self, file_path: str):
+        self._file_path = file_path
+        self._invites = {}
+        self._unsigned = {}
+        if os.path.exists(file_path):
+            with open(file_path) as f:
+                data = json.load(f)
+                self._invites = data["invites"]
+                self._unsigned = data["unsigned"]
+
+    def unsigned_signers_for_role(self, rolename: str) -> list[str]:
+        signers = []
+        for unsigned_signer, unsigned_rolenames in self._unsigned.items():
+            if rolename in unsigned_rolenames:
+                signers.append(unsigned_signer)
+        return signers
+
+    def invited_signers_for_role(self, rolename: str) -> list[str]:
+        signers = []
+        for invited_signer, invited_rolenames in self._invites.items():
+            if rolename in invited_rolenames:
+                signers.append(invited_signer)
+        return signers
+
+    def request_signature(self, rolename: str, signer: str):
+        if signer not in self._unsigned:
+            self._unsigned[signer] = []
+        if rolename not in self._unsigned[signer]:
+            self._unsigned[signer].append(rolename)
+
+    def unrequest_signature(self, rolename: str, signer: str):
+        if signer in self._unsigned:
+            if rolename in self._unsigned[signer]:
+                self._unsigned[signer].remove(rolename)
+            if not self._unsigned[signer]:
+                del self._unsigned[signer]
+
+    def write(self):
+        with open(self._file_path, "w") as f:
+            data = {"invites": self._invites, "unsigned": self._unsigned}
+            f.write(json.dumps(data, indent=2))
+
 
 class PlaygroundRepository(Repository):
     """A online repository implementation for use in GitHub Actions
@@ -32,11 +76,7 @@ class PlaygroundRepository(Repository):
         self._prev_dir = prev_dir
 
         # read signing event state file
-        self._state_config = {"invites": {}, "unsigned": {}}
-        state_file = os.path.join(self._dir, ".signing-event-state")
-        if os.path.exists(state_file):
-            with open(state_file) as f:
-                self._state_config  = json.load(f)
+        self._state = SigningEventState(os.path.join(self._dir, ".signing-event-state"))
 
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
@@ -110,28 +150,30 @@ class PlaygroundRepository(Repository):
         return None
 
     def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
+        """Build signing status for role.
+
+        This method relies on event state (.signing-event-state) to be accurate.
+        """
         invites = set()
         sigs = set()
         missing_sigs = set()
-        delegate = self.open(rolename)
+        md = self.open(rolename)
 
-        # Build list of invites for all delegated roles of the delegate
-        for keyowner, rolenames in self._state_config["invites"].items():
-            if rolename == "root":
-                if set(rolenames).intersection(delegate.signed.roles):
-                    invites.add(keyowner)
-            elif rolename == "targets":
-                if delegate.signed.delegations and set(rolenames).intersection(delegate.signed.delegations.roles):
-                    invites.add(keyowner)
+        # Build list of invites to all delegated roles of rolename
+        if rolename == "root":
+            delegation_names = md.signed.roles.keys()
+        elif rolename == "targets":
+            delegation_names = []
+            if md.signed.delegations:
+                delegation_names = md.signed.delegations.roles.keys()
+        for delegation_name in delegation_names:
+            invites.update(self._state.invited_signers_for_role(delegation_name))
 
         # Build lists of signed signers and not signed signers
-        # This relies on "unsigned" state configuration being up-to-date
         prev_delegate = self.open_prev(rolename)
         role = delegator.signed.get_delegated_role(rolename)
 
-        for keyowner, rolenames in self._state_config["unsigned"].items():
-            if rolename in rolenames:
-                missing_sigs.add(keyowner)
+        missing_sigs = set(self._state.unsigned_signers_for_role(rolename))
 
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
@@ -141,12 +183,12 @@ class PlaygroundRepository(Repository):
         # Just to be sure: double check that delegation threshold is reached
         valid = True
         try:
-            delegator.verify_delegate(rolename,delegate)
+            delegator.verify_delegate(rolename,md)
         except:
             valid = False
 
         # Other checks to ensure repository continuity        
-        if prev_delegate and delegate.signed.version <= prev_delegate.signed.version:
+        if prev_delegate and md.signed.version <= prev_delegate.signed.version:
             valid = False
 
         # TODO more checks here
@@ -176,24 +218,13 @@ class PlaygroundRepository(Repository):
     def request_signatures(self, rolename: str):
         md = self.open(rolename)
         payload = CanonicalJSONSerializer().serialize(md.signed)
-        updated = False
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
             try:
                 key.verify_signature(md.signatures[key.keyid], payload)
-                if keyowner in self._state_config["unsigned"] and rolename in self._state_config["unsigned"][keyowner]:
-                    self._state_config["unsigned"][keyowner].remove(rolename)
-                    if not self._state_config["unsigned"][keyowner]:
-                        del self._state_config["unsigned"][keyowner]
-                    updated = True
+                self._state.unrequest_signature(rolename, keyowner)
 
             except (KeyError, UnverifiedSignatureError):
-                if keyowner not in self._state_config["unsigned"]:
-                    self._state_config["unsigned"][keyowner] = []
-                if rolename not in self._state_config["unsigned"][keyowner]:
-                    self._state_config["unsigned"][keyowner].append(rolename)
-                    updated = True
+                self._state.request_signature(rolename, keyowner)
 
-        if updated:
-            with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
-                f.write(json.dumps(self._state_config, indent=2))
+        self._state.write()
