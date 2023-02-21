@@ -2,16 +2,17 @@
 
 """playground-sign: A command line tool to sign Repository Playground changes"""
 
-import random
-import string
-import subprocess
 from tempfile import TemporaryDirectory
 import click
-from configparser import ConfigParser
 import logging
 import os
-from securesystemslib.signer import HSMSigner, Key
 
+from playground_sign._common import (
+    get_signing_key_input,
+    get_secret_input,
+    git,
+    read_settings,
+)
 from playground_sign._signer_repository import (
     SignerRepository,
     SignerState,
@@ -19,54 +20,16 @@ from playground_sign._signer_repository import (
 
 logger = logging.getLogger(__name__)
 
-
-def _get_signing_key_input() -> Key:
-    # TODO use value_proc argument to validate the input
-    click.prompt(
-        "To accept the invitation, please insert your HW key and press enter",
-        default=True,
-        show_default=False,
-    )
-    try:
-        _, key = HSMSigner.import_()
-    except Exception as e:
-        raise click.ClickException(f"Failed to read HW key: {e}")
-
-    return key
-
-
-def _get_secret_input(secret: str, role: str) -> str:
-    return click.prompt(f"Enter {secret} to sign {role}", hide_input=True)
-
-
-def _read_settings(config_path: str) -> tuple[str, str]:
-    config = ConfigParser()
-    config.read(config_path)
-    # TODO: create config if missing, ask user for values
-    if not config:
-        raise click.ClickException(f"Settings file {config_path} not found")
-    try:
-        return config["settings"]["user-name"], config["settings"]["pykcs11lib"]
-    except KeyError as e:
-        raise click.ClickException(f"Failed to find required setting {e} in {config_path}")
-
-
-def _git(cmd: list[str]) -> str:
-    cmd = ["git"] + cmd
-    proc = subprocess.run(cmd, capture_output=True, check=True, text=True)
-    return proc.stdout.strip()
-
-
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 def sign(verbose: int):
     """Signing tool for Repository Playground signing events."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    toplevel = _git(["rev-parse", "--show-toplevel"])
+    toplevel = git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =_read_settings(settings_path)
+    user_name, pykcs11lib =read_settings(settings_path)
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
@@ -74,19 +37,19 @@ def sign(verbose: int):
         os.environ["PYKCS11LIB"] = pykcs11lib
 
     # checkout the starting point of this signing event
-    known_good_sha = _git(["merge-base", "origin/main", "HEAD"])
+    known_good_sha = git(["merge-base", "origin/main", "HEAD"])
     with TemporaryDirectory() as known_good_dir:
         prev_dir = os.path.join(known_good_dir, "metadata")
-        _git(["clone", "--quiet", toplevel, known_good_dir])
-        _git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
+        git(["clone", "--quiet", toplevel, known_good_dir])
+        git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, _get_secret_input)
+        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
         elif repo.state == SignerState.INVITED:
             click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
-            key = _get_signing_key_input()
+            key = get_signing_key_input("To accept the invitation, please insert your HW key and press enter")
             for rolename in repo.invites.copy():
                 # Modify the delegation
                 config = repo.get_role_config(rolename)

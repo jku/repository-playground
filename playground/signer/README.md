@@ -29,7 +29,9 @@ When a signing event (GitHub issue) requests your signature, run `playground-sig
 ### TODO
 
 * implement role-metadata cache -- currently we load the same file quite a lot
-* playground-delegate should not modify delegator if it's not needed, see set_role_config()
+* avoid asking for pin too many times
+  1. same role is sometimes signed mutliple times -- could avoid all but last one
+  2. multiple roles may be signed -- this is likely not worth optimizing 
 * refactor event state handling (invites): it's currently clumsy in _signer_repository.py
 * git integration. Would be nice to be able to avoid
   * git fetch
