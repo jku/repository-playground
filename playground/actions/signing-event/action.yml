@@ -87,17 +87,24 @@ runs:
             const fs = require('fs')
             body = fs.readFileSync('./status-output').toString()
             if (process.env.STATUS == 'signed') {
-              // TODO don't create if PR already exists
-              const pull = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head: process.env.GITHUB_REF_NAME,
-                base: 'main',
-                title: 'Signing event ' + process.env.GITHUB_REF_NAME,
-                body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + ', see issue #' + process.env.ISSUE,
+              const repo = context.repo.owner + "/" + context.repo.repo
+              const issues = await github.rest.search.issuesAndPullRequests({
+                q: "head:" + process.env.GITHUB_REF_NAME + "+state:open+type:pr+repo:" + repo,
               })
-              body += "### Pull request filed\n\n"
-              body += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
+              if (issues.data.total_count != 0) {
+                console.log("Skipping PR creation as one exists already")
+              } else {
+                const pull = await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: process.env.GITHUB_REF_NAME,
+                  base: 'main',
+                  title: process.env.GITHUB_REF_NAME,
+                  body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + '.\nCloses issue #' + process.env.ISSUE,
+                })
+                body += "### Pull request filed\n\n"
+                body += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
+              }
             }
             github.rest.issues.createComment({
               issue_number: process.env.ISSUE,
