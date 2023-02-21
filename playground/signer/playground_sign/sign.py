@@ -75,10 +75,11 @@ def sign(verbose: int):
     # checkout the starting point of this signing event
     known_good_sha = _git(["merge-base", "origin/main", "HEAD"])
     with TemporaryDirectory() as known_good_dir:
+        good_metadata_dir = os.path.join(known_good_dir, "metadata")
         _git(["clone", "--quiet", toplevel, known_good_dir])
         _git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, known_good_dir, user_name, _get_secret_input)
+        repo = SignerRepository(metadata_dir, good_metadata_dir, user_name, _get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
