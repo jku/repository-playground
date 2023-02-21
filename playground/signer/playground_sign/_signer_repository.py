@@ -52,9 +52,10 @@ class OfflineConfig:
 class SignerRepository(Repository):
     """A repository implementation for the signer tool"""
 
-    def __init__(self, dir: str, user_name: str, secret_func: Callable[[str, str], str]):
+    def __init__(self, dir: str, prev_dir: str, user_name: str, secret_func: Callable[[str, str], str]):
         self.user_name = user_name
         self._dir = dir
+        self._prev_dir = prev_dir
         self._get_secret = secret_func
         self._state_config = {"invites": {}, "unsigned": {}}
 
@@ -105,6 +106,15 @@ class SignerRepository(Repository):
 
     def _get_versioned_root_filename(self, version: int) -> str:
         return os.path.join(self._dir, "root_history", f"{version}.root.json")
+
+    def _prev_version(self, rolename: str) -> int:
+        prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            return md.signed.version
+
+        return 0
 
     def _get_expiry(self, role: str) -> datetime:
         # TODO use custom metadata, see ../IMPLEMENTATION-NOTES.md
@@ -168,12 +178,8 @@ class SignerRepository(Repository):
         """Write metadata to a file in the repository directory"""
         filename = self._get_filename(role)
 
-        # Avoid bumping version within a single git commit
-        # TODO this should compare to the forking point of this signing event
-        # and bump version only once within the signing event
-        # status() requires the comparison anyway so should not be a problem?
-        if unmodified_in_git(filename):
-            md.signed.version += 1
+        # Make sure version is bumped only once per signing event
+        md.signed.version = self._prev_version(role) + 1
 
         md.signed.expires = self._get_expiry(role)
 

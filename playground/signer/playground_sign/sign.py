@@ -5,6 +5,7 @@
 import random
 import string
 import subprocess
+from tempfile import TemporaryDirectory
 import click
 from configparser import ConfigParser
 import logging
@@ -61,7 +62,6 @@ def sign(verbose: int):
 
     toplevel = _git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
-
     settings = _read_settings(os.path.join(toplevel, ".playground-sign.ini"))
 
     # PyKCS11 (Yubikey support) needs the module path
@@ -72,39 +72,45 @@ def sign(verbose: int):
     # TODO: if config is not set, complain/ask the user?
     user_name = settings["user-name"]
 
-    repo = SignerRepository(metadata_dir, user_name, _get_secret_input)
-    if repo.state == SignerState.UNINITIALIZED:
-        click.echo("No metadata repository found")
-        changed = False
-    elif repo.state == SignerState.INVITED:
-        click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
-        key = _get_signing_key_input()
-        for rolename in repo.invites.copy():
-            # Modify the delegation
-            config = repo.get_role_config(rolename)
-            repo.set_role_config(rolename, config, key)
+    # checkout the starting point of this signing event
+    known_good_sha = _git(["merge-base", "origin/main", "HEAD"])
+    with TemporaryDirectory() as known_good_dir:
+        _git(["clone", "--quiet", toplevel, known_good_dir])
+        _git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-            # Sign the role we are now a signer for
-            if rolename != "root":
-                repo.sign(rolename)
+        repo = SignerRepository(metadata_dir, known_good_dir, user_name, _get_secret_input)
+        if repo.state == SignerState.UNINITIALIZED:
+            click.echo("No metadata repository found")
+            changed = False
+        elif repo.state == SignerState.INVITED:
+            click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
+            key = _get_signing_key_input()
+            for rolename in repo.invites.copy():
+                # Modify the delegation
+                config = repo.get_role_config(rolename)
+                repo.set_role_config(rolename, config, key)
 
-        # Sign any other roles we may be asked to sign at the same time
-        if repo.unsigned:
+                # Sign the role we are now a signer for
+                if rolename != "root":
+                    repo.sign(rolename)
+
+            # Sign any other roles we may be asked to sign at the same time
+            if repo.unsigned:
+                click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")
+                for rolename in repo.unsigned:
+                    click.echo(repo.status(rolename))
+                    repo.sign(rolename)
+            changed = True
+        elif repo.state == SignerState.SIGNATURE_NEEDED:
             click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")
             for rolename in repo.unsigned:
                 click.echo(repo.status(rolename))
                 repo.sign(rolename)
-        changed = True
-    elif repo.state == SignerState.SIGNATURE_NEEDED:
-        click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")
-        for rolename in repo.unsigned:
-            click.echo(repo.status(rolename))
-            repo.sign(rolename)
-        changed = True
-    elif repo.state == SignerState.NO_ACTION:
-        changed = False
-    else:
-        raise NotImplementedError
+            changed = True
+        elif repo.state == SignerState.NO_ACTION:
+            changed = False
+        else:
+            raise NotImplementedError
 
     if changed:
         click.echo(

@@ -28,11 +28,11 @@ When a signing event (GitHub issue) requests your signature, run `playground-sig
 
 ### TODO
 
-* version bump: Currently we bump version if there are no _uncommitted changes_ in git
-  for this role. This is not optimal especially for root as a single delegation change
-  can produce multiple root versions, we should bump if there are no changes yet
-  _compared to signing event forking point_
-* git integration. Woould be nice to be able to avoid
+* expiry: should use the custom metadata
+* requesting signatures: After the version bump fix, it may be possible to remove the
+  signature request from .signing-event-state: if a role has been change in the signing
+  event that is a signature request...  
+* git integration. Would be nice to be able to avoid
   * git fetch
   * git checkout <signing-event>
   * git push <remote> <signing-event>

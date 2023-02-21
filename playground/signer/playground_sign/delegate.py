@@ -5,6 +5,7 @@
 from copy import deepcopy
 import copy
 import subprocess
+from tempfile import TemporaryDirectory
 import click
 from configparser import ConfigParser
 import logging
@@ -205,7 +206,6 @@ def delegate(verbose: int, role: str | None):
 
     toplevel = _git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
-
     settings = _read_settings(os.path.join(toplevel, ".playground-sign.ini"))
 
     # PyKCS11 (Yubikey support) needs the module path
@@ -216,15 +216,21 @@ def delegate(verbose: int, role: str | None):
     # TODO: if config is not set, complain/ask the user?
     user_name = settings["user-name"]
 
-    repo = SignerRepository(metadata_dir, user_name, _get_secret_input)
-    if repo.state == SignerState.UNINITIALIZED:
-        changed = _init_repository(repo)
-    elif role in ["timestamp", "snapshot"]:
-        changed = _update_online_roles(repo)
-    elif role:
-        changed =  _update_offline_role(repo, role)
-    else:
-        raise click.UsageError("ROLE is required")
+    # checkout the starting point of this signing event
+    known_good_sha = _git(["merge-base", "origin/main", "HEAD"])
+    with TemporaryDirectory() as known_good_dir:
+        _git(["clone", "--quiet", toplevel, known_good_dir])
+        _git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
+
+        repo = SignerRepository(metadata_dir, known_good_dir, user_name, _get_secret_input)
+        if repo.state == SignerState.UNINITIALIZED:
+            changed = _init_repository(repo)
+        elif role in ["timestamp", "snapshot"]:
+            changed = _update_online_roles(repo)
+        elif role:
+            changed =  _update_offline_role(repo, role)
+        else:
+            raise click.UsageError("ROLE is required")
 
     if changed:
         click.echo(
