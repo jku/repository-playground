@@ -28,7 +28,8 @@ When a signing event (GitHub issue) requests your signature, run `playground-sig
 
 ### TODO
 
-* expiry: should use the custom metadata
+* implement role-metadata cache -- currently we load the same file quite a lot
+* playground-delegate should not modify delegator if it's not needed, see set_role_config()
 * refactor event state handling (invites): it's currently clumsy in _signer_repository.py
 * git integration. Would be nice to be able to avoid
   * git fetch

@@ -132,10 +132,6 @@ class SignerRepository(Repository):
 
         return 0
 
-    def _get_expiry(self, role: str) -> datetime:
-        # TODO use custom metadata, see ../IMPLEMENTATION-NOTES.md
-        return datetime.utcnow() + timedelta(days=365)
-
     def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
         if role in ["root", "timestamp", "snapshot", "targets"]:
@@ -184,6 +180,8 @@ class SignerRepository(Repository):
                 md = Metadata(Root())
             else:
                 md = Metadata(Targets())
+            md.signed.unrecognized_fields["x-playground-expiry-period"] = 0
+            md.signed.unrecognized_fields["x-playground-signing-period"] = 0
         else:
             with open(fname, "rb") as f:
                 md = Metadata.from_bytes(f.read())
@@ -192,12 +190,12 @@ class SignerRepository(Repository):
 
     def close(self, role: str, md: Metadata) -> None:
         """Write metadata to a file in the repository directory"""
-        filename = self._get_filename(role)
-
         # Make sure version is bumped only once per signing event
         md.signed.version = self._prev_version(role) + 1
 
-        md.signed.expires = self._get_expiry(role)
+        # Set expiry based on custom metadata
+        days = md.signed.unrecognized_fields["x-playground-expiry-period"]
+        md.signed.expires = datetime.utcnow() + timedelta(days=days)
 
         md.signatures.clear()
         for key in self._get_keys(role):
