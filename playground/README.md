@@ -30,9 +30,12 @@ TODO Document:
 
 ### Repository template
 
-Status: TODO.
+Status: partially implemented in the playground-template project.
+* Currently contains signing event workflow
+* Requires enabling _Settings->Actions->Allow GitHub Actions to create and
+  approve pull requests_
 
-Intent is to setup a new git repository for this.
+See [https://github.com/jku/playground-template]
 
 ### Repository actions
 
