@@ -198,6 +198,7 @@ class SignerRepository(Repository):
         raise NotImplementedError
 
     def get_online_config(self) -> OnlineConfig:
+        """Read configuration for online delegation from metadata"""
         root: Root = self.open("root").signed
 
         timestamp_role = root.get_delegated_role("timestamp")
@@ -210,6 +211,7 @@ class SignerRepository(Repository):
         return OnlineConfig(key, uri, timestamp_expiry, snapshot_expiry)
 
     def set_online_config(self, online_config: OnlineConfig):
+        """Store online delegation configuration in metadata."""
         online_config.key.unrecognized_fields["x-playground-online-uri"] = online_config.uri
 
         with self.edit("root") as root:
@@ -224,6 +226,7 @@ class SignerRepository(Repository):
             role.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
 
     def get_role_config(self, rolename: str) -> OfflineConfig:
+        """Read configuration for delegation and role from metadata"""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError("online roles not supported")
 
@@ -255,6 +258,9 @@ class SignerRepository(Repository):
         return OfflineConfig(signers, threshold, expiry, signing)
 
     def set_role_config(self, rolename: str, config: OfflineConfig, signing_key: Key | None):
+        """Store delegation & role configuration in metadata.
+
+        signing_key is only used if user is configured as signer"""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError("online roles not supported")
 
@@ -307,7 +313,7 @@ class SignerRepository(Repository):
             f.write(json.dumps(self._state_config, indent=2))
 
     def status(self, rolename: str) -> str:
-        return "TODO: Describe the changes in the signing event"
+        return "TODO: Describe the changes in the signing event for this role"
 
     def sign(self, rolename: str):
         """Sign without payload changes"""

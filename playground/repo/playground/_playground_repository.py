@@ -196,6 +196,10 @@ class PlaygroundRepository(Repository):
         return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid)
 
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
+        """Returns signing status for role.
+
+        In case of root, another SigningStatus is rturned for the previous root.
+        Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError(f"Not supported for online metadata")
 
@@ -216,6 +220,9 @@ class PlaygroundRepository(Repository):
         return self._get_signing_status(delegator, rolename), prev_status
 
     def request_signatures(self, rolename: str):
+        """Add/remove signing requests.
+
+        Modifies .signing-event-state"""
         md = self.open(rolename)
         payload = CanonicalJSONSerializer().serialize(md.signed)
         for key in self._get_keys(rolename):

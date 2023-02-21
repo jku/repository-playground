@@ -23,3 +23,7 @@ user-name = @jku
 pull-remote = origin
 push-remote = origin
 ```
+
+### Usage
+
+When a signing event (GitHub issue) requests your signature, run `playground-sign`.

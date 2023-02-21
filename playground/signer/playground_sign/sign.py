@@ -84,7 +84,7 @@ def _push(signing_event: str, pull_remote: str, push_remote: str, branch: str):
 @click.option("-v", "--verbose", count=True, default=0)
 @click.argument("signing-event")
 def sign(verbose: int, signing_event: str):
-    """Tool for signing Repository Playground changes."""
+    """Signing tool for Repository Playground signing events."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = _git(["rev-parse", "--show-toplevel"])

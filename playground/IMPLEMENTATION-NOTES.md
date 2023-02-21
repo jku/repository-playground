@@ -85,14 +85,23 @@ A) make it clear it's custom and B) make collisions unlikely.
   * used by repo to notify @username
 * key.x-playground-online-uri
   * used by repo to sign with online key
-* role.x-playground-invited-signers
-  * used by repo to notify invited usernames
-  * used by tool to accept invitations
-* role.x-playground-expiry-period (for all online roles)
+* role.x-playground-expiry-period & role.x-playground-signing-period (for all online roles)
   * used by repo to decide when new timestamp/snapshot is needed and to decide the new expiry date
+  * signing-period may not be needed -- maybe we can predict what is safe?
 * signed.x-playground-expiry-period & signed.x-playground-signing-period (for all offline roles)
   * used by repo to decide when to start a signing event
   * used by tool to bump version
+
+In addition to signed metadata, the following data is commited to git during the signing event (but is
+not part of the actual signed repository):
+* invitations 
+  * set by signer tool
+  * used by repo to notify invited usernames
+  * used by signer tool to accept invitations
+* requested signatures
+  * set by repository
+  * used by signer tool to sign
+
 
 ## GitHub Actions that should be provided
 
@@ -107,6 +116,7 @@ A) make it clear it's custom and B) make collisions unlikely.
     * if signing-period for a role is reached, start a signing event (branch)
     * construct the version bump commit in the branch
       (alternatively, let signing tool create the version bump)
+    * request signatures
   * check each online role
     * if signing-period for a role is reached, create new version and sign
       (if snapshot changed, also bump timestamp)
