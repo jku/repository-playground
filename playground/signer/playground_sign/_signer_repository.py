@@ -289,9 +289,9 @@ class SignerRepository(Repository):
         else:
             delegator_name = "targets"
 
-        # TODO only save new version if values change
         with self.edit(delegator_name) as delegator:
             # Handle existing signers
+            changed = False
             role = delegator.get_delegated_role(rolename)
             for keyid in role.keyids:
                 key = delegator.get_key(keyid)
@@ -301,17 +301,24 @@ class SignerRepository(Repository):
                 else:
                     # signer was removed
                     delegator.revoke_key(keyid, rolename)
+                    changed = True
 
             # Add user themselves
             if self.user_name in config.signers and signing_key:
                 signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
                 delegator.add_key(signing_key, rolename)
                 config.signers.remove(self.user_name)
+                changed = True
 
+            if role.threshold != config.threshold:
+                changed = True
             role.threshold = config.threshold
 
+            if not changed:
+                # Exit the edit-contextmanager without saving if no changes were done
+                raise AbortEdit(f"No changes to delegator of {rolename}")
+
         # Modify the role itself
-        # TODO only save new version if values change
         with self.edit(rolename) as signed:
             expiry = signed.unrecognized_fields.get("x-playground-expiry-period")
             signing = signed.unrecognized_fields.get("x-playground-signing-period")
