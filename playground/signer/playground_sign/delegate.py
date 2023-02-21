@@ -139,14 +139,16 @@ def _get_secret_input(secret: str, role: str) -> str:
     return click.prompt(f"Enter {secret} to sign {role}", hide_input=True)
 
 
-def _read_settings(config_path: str) -> dict[str, str]:
+def _read_settings(config_path: str) -> tuple[str, str]:
     config = ConfigParser()
     config.read(config_path)
     # TODO: create config if missing, ask user for values
-    if not config or "settings" not in config:
-        raise RuntimeError("Settings file not found")
-    return config["settings"]
-
+    if not config:
+        raise click.ClickException(f"Settings file {config_path} not found")
+    try:
+        return config["settings"]["user-name"], config["settings"]["pykcs11lib"]
+    except KeyError as e:
+        raise click.ClickException(f"Failed to find required setting {e} in {config_path}")
 
 def _git(cmd: list[str]) -> str:
     cmd = ["git"] + cmd
@@ -206,15 +208,13 @@ def delegate(verbose: int, role: str | None):
 
     toplevel = _git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
-    settings = _read_settings(os.path.join(toplevel, ".playground-sign.ini"))
+    settings_path = os.path.join(toplevel, ".playground-sign.ini")
+    user_name, pykcs11lib =_read_settings(settings_path)
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
-    if "PYKCS11LIB" not in os.environ and "pykcs11lib" in settings:
-        os.environ["PYKCS11LIB"] = settings["pykcs11lib"]
-
-    # TODO: if config is not set, complain/ask the user?
-    user_name = settings["user-name"]
+    if "PYKCS11LIB" not in os.environ:
+        os.environ["PYKCS11LIB"] = pykcs11lib
 
     # checkout the starting point of this signing event
     known_good_sha = _git(["merge-base", "origin/main", "HEAD"])
