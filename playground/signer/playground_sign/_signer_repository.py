@@ -4,8 +4,9 @@
 
 from dataclasses import dataclass
 from enum import Enum, unique
+import filecmp
+from glob import glob
 import json
-import subprocess
 import os
 from datetime import datetime, timedelta
 from typing import Callable
@@ -16,14 +17,27 @@ from tuf.api.metadata import Key, Metadata, MetaFile, Root, Targets
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository, AbortEdit
 
-def unmodified_in_git(filepath: str) -> bool:
-    """Return True if the file is in git, and does not have changes in index"""
-    cmd = ["git", "ls-files", "--error-unmatch", "--", filepath]
-    if subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) != 0:
-        return False
+def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str]:
+    """Return list of roles that exist and have changed in this signing event"""
+    files = glob("*.json", root_dir=signing_event_dir)
+    changed_roles = []
+    for fname in files:
+        if (
+            not os.path.exists(f"{known_good_dir}/{fname}") or
+            not filecmp.cmp(f"{signing_event_dir}/{fname}", f"{known_good_dir}/{fname}",  shallow=False)
+        ):
+            if fname in ["timestamp.json", "snapshot.json"]:
+                assert("Unexpected change in online files")
 
-    cmd = ["git", "diff", "--exit-code", "--no-patch", "--", filepath]
-    return subprocess.call(cmd) == 0
+            changed_roles.append(fname[:-len(".json")])
+
+    # reorder, toplevels first
+    for toplevel in ["targets", "root"]:
+        if toplevel in changed_roles:
+            changed_roles.remove(toplevel)
+            changed_roles.insert(0, toplevel)
+
+    return changed_roles
 
 @unique
 class SignerState(Enum):
@@ -57,13 +71,20 @@ class SignerRepository(Repository):
         self._dir = dir
         self._prev_dir = prev_dir
         self._get_secret = secret_func
-        self._state_config = {"invites": {}, "unsigned": {}}
+        self._invites: dict[str, list[str]] = {}
 
-        # read signing event state file
+        # read signing event state file (invites)
         state_file = os.path.join(self._dir, ".signing-event-state")
         if os.path.exists(state_file):
             with open(state_file) as f:
-                self._state_config  = json.load(f)
+                config = json.load(f)
+            self._invites = config["invites"]
+
+        # Figure out needed signatures
+        self.unsigned = []
+        for rolename in _find_changed_roles(self._prev_dir, self._dir):
+            if self._user_signature_needed(rolename) and rolename not in self.invites:
+                self.unsigned.append(rolename)
 
         # Find current state
         if not os.path.exists(os.path.join(self._dir, "root.json")):
@@ -77,19 +98,14 @@ class SignerRepository(Repository):
 
     @property
     def invites(self) -> list[str]:
+        """Return the list of roles the user has been invited to"""
         try:
-            return self._state_config["invites"][self.user_name]
-        except KeyError:
-            return []
-
-    @property
-    def unsigned(self) -> list[str]:
-        try:
-            return self._state_config["unsigned"][self.user_name]
+            return self._invites[self.user_name]
         except KeyError:
             return []
 
     def _user_signature_needed(self, rolename: str) -> bool:
+        """Return true if current role metadata is unsigned by user"""
         md = self.open(rolename)
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
@@ -250,7 +266,7 @@ class SignerRepository(Repository):
         threshold = role.threshold
         signers = []
         # Include current invitees on config
-        for signer, rolenames in self._state_config["invites"].items():
+        for signer, rolenames in self._invites.items():
             if rolename in rolenames:
                 signers.append(signer)
         # Include current signers on config
@@ -309,22 +325,23 @@ class SignerRepository(Repository):
 
         # Remove invites for the role
         new_invites = {}
-        for invited_signer, invited_roles in self._state_config["invites"].items():
+        for invited_signer, invited_roles in self._invites.items():
             if rolename in invited_roles:
                 invited_roles.remove(rolename)
             if invited_roles:
                 new_invites[invited_signer] = invited_roles
-        self._state_config["invites"] = new_invites
+        self._invites = new_invites
 
         # Handle new invitations
         for signer in config.signers:
-            if signer not in self._state_config["invites"]:
-                self._state_config["invites"][signer] = []
-            if rolename not in self._state_config["invites"][signer]:
-                self._state_config["invites"][signer].append(rolename)
+            if signer not in self._invites:
+                self._invites[signer] = []
+            if rolename not in self._invites[signer]:
+                self._invites[signer].append(rolename)
 
         with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
-            f.write(json.dumps(self._state_config, indent=2))
+            config = {"invites": self._invites}
+            f.write(json.dumps(config, indent=2))
 
     def status(self, rolename: str) -> str:
         return "TODO: Describe the changes in the signing event for this role"

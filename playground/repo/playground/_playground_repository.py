@@ -8,9 +8,8 @@ from tuf.repository import Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer
 
 # TODO Add a metadata cache so we don't constantly open files
-
-
 # TODO; Signing status probably should include an error message when valid=False
+
 @dataclass
 class SigningStatus:
     invites: set[str] # invites to _delegations_ of the role
@@ -24,19 +23,10 @@ class SigningEventState:
     def __init__(self, file_path: str):
         self._file_path = file_path
         self._invites = {}
-        self._unsigned = {}
         if os.path.exists(file_path):
             with open(file_path) as f:
                 data = json.load(f)
                 self._invites = data["invites"]
-                self._unsigned = data["unsigned"]
-
-    def unsigned_signers_for_role(self, rolename: str) -> list[str]:
-        signers = []
-        for unsigned_signer, unsigned_rolenames in self._unsigned.items():
-            if rolename in unsigned_rolenames:
-                signers.append(unsigned_signer)
-        return signers
 
     def invited_signers_for_role(self, rolename: str) -> list[str]:
         signers = []
@@ -45,22 +35,9 @@ class SigningEventState:
                 signers.append(invited_signer)
         return signers
 
-    def request_signature(self, rolename: str, signer: str):
-        if signer not in self._unsigned:
-            self._unsigned[signer] = []
-        if rolename not in self._unsigned[signer]:
-            self._unsigned[signer].append(rolename)
-
-    def unrequest_signature(self, rolename: str, signer: str):
-        if signer in self._unsigned:
-            if rolename in self._unsigned[signer]:
-                self._unsigned[signer].remove(rolename)
-            if not self._unsigned[signer]:
-                del self._unsigned[signer]
-
     def write(self):
         with open(self._file_path, "w") as f:
-            data = {"invites": self._invites, "unsigned": self._unsigned}
+            data = {"invites": self._invites}
             f.write(json.dumps(data, indent=2))
 
 
@@ -169,16 +146,18 @@ class PlaygroundRepository(Repository):
         for delegation_name in delegation_names:
             invites.update(self._state.invited_signers_for_role(delegation_name))
 
-        # Build lists of signed signers and not signed signers
-        prev_delegate = self.open_prev(rolename)
+        prev_md = self.open_prev(rolename)
         role = delegator.signed.get_delegated_role(rolename)
 
-        missing_sigs = set(self._state.unsigned_signers_for_role(rolename))
-
+        # Build lists of signed signers and not signed signers
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner not in missing_sigs:
+            try:
+                payload = CanonicalJSONSerializer().serialize(md.signed)
+                key.verify_signature(md.signatures[key.keyid], payload)
                 sigs.add(keyowner)
+            except (KeyError, UnverifiedSignatureError):
+                missing_sigs.add(keyowner)
 
         # Just to be sure: double check that delegation threshold is reached
         valid = True
@@ -188,7 +167,7 @@ class PlaygroundRepository(Repository):
             valid = False
 
         # Other checks to ensure repository continuity        
-        if prev_delegate and md.signed.version <= prev_delegate.signed.version:
+        if prev_md and md.signed.version <= prev_md.signed.version:
             valid = False
 
         # TODO more checks here
@@ -218,20 +197,3 @@ class PlaygroundRepository(Repository):
             delegator = self.open("targets")
 
         return self._get_signing_status(delegator, rolename), prev_status
-
-    def request_signatures(self, rolename: str):
-        """Add/remove signing requests.
-
-        Modifies .signing-event-state"""
-        md = self.open(rolename)
-        payload = CanonicalJSONSerializer().serialize(md.signed)
-        for key in self._get_keys(rolename):
-            keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            try:
-                key.verify_signature(md.signatures[key.keyid], payload)
-                self._state.unrequest_signature(rolename, keyowner)
-
-            except (KeyError, UnverifiedSignatureError):
-                self._state.request_signature(rolename, keyowner)
-
-        self._state.write()

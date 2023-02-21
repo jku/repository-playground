@@ -29,9 +29,7 @@ When a signing event (GitHub issue) requests your signature, run `playground-sig
 ### TODO
 
 * expiry: should use the custom metadata
-* requesting signatures: After the version bump fix, it may be possible to remove the
-  signature request from .signing-event-state: if a role has been change in the signing
-  event that is a signature request...  
+* refactor event state handling (invites): it's currently clumsy in _signer_repository.py
 * git integration. Would be nice to be able to avoid
   * git fetch
   * git checkout <signing-event>
