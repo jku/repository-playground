@@ -188,8 +188,6 @@ signer <signing-event>` -- this could do everything from pulling the branch, exp
   ```
   username = @jku
   pkcs11lib = /usr/lib/x86_64-linux-gnu/libykcs11.so
-  origin = origin
-  fork = jku
   ```
 
 ### Repository configuration

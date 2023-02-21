@@ -36,18 +36,25 @@ Intent is to setup a new git repository for this.
 
 ### Repository actions
 
-Status: TODO, very rough prototype exists in https://github.com/jku/playground-git-demo
-and git-repo-prototype branch in this repository.
+Status:
+* actions/signing-event is partially implemented
+* the CLI commands needed by actions/signing-event are partially implemented
+  * playground-request-signatures
+  * playground-status
 
-Intent is that
-* actions are maintained in this git repository, e.g. actions/signing-event/action.yml
-* the software the actions use is maintained in this repository in playground/repo/
+Not implemented yet
+* snapshot/timestamp
+* cron version bumps
+
+See [repo/], See [actions/]
 
 ### signing tool
 
-Status: TODO, prototype exists in git-repo-prototype branch.
+Status:
+* playground-delegate mostly implented
+* playground-sign mostly implemented
 
-Intent is that the signer tools is maintained in this repository in playground/signer/
+See [signer/]
 
 ### Client
 
