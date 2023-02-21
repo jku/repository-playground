@@ -79,9 +79,16 @@ def sign(verbose: int):
     elif repo.state == SignerState.INVITED:
         click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
         key = _get_signing_key_input()
-        for rolename in repo.invites:
+        for rolename in repo.invites.copy():
+            # Modify the delegation
             config = repo.get_role_config(rolename)
             repo.set_role_config(rolename, config, key)
+
+            # Sign the role we are now a signer for
+            if rolename != "root":
+                repo.sign(rolename)
+
+        # Sign any other roles we may be asked to sign at the same time
         if repo.unsigned:
             click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")
             for rolename in repo.unsigned:

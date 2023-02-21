@@ -14,7 +14,7 @@ from securesystemslib.signer import Signature, Signer
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Targets
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
-from tuf.repository import Repository
+from tuf.repository import Repository, AbortEdit
 
 def unmodified_in_git(filepath: str) -> bool:
     """Return True if the file is in git, and does not have changes in index"""
@@ -293,15 +293,22 @@ class SignerRepository(Repository):
         # Modify the role itself
         # TODO only save new version if values change
         with self.edit(rolename) as signed:
+            expiry = signed.unrecognized_fields.get("x-playground-expiry-period")
+            signing = signed.unrecognized_fields.get("x-playground-signing-period")
+            if expiry == config.expiry_period and signing == config.signing_period:
+                raise AbortEdit(f"No changes to {rolename}")
+
             signed.unrecognized_fields["x-playground-expiry-period"] = config.expiry_period
             signed.unrecognized_fields["x-playground-signing-period"] = config.signing_period
 
-        # Handle removed invitations
+        # Remove invites for the role
+        new_invites = {}
         for invited_signer, invited_roles in self._state_config["invites"].items():
-            if invited_signer not in config.signers:
-                if rolename in invited_roles:
-                    invited_roles.remove(rolename)
-                # TODO remve empty invited_roles lists?
+            if rolename in invited_roles:
+                invited_roles.remove(rolename)
+            if invited_roles:
+                new_invites[invited_signer] = invited_roles
+        self._state_config["invites"] = new_invites
 
         # Handle new invitations
         for signer in config.signers:
