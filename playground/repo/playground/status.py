@@ -72,7 +72,7 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
         if status.invites:
             click.echo(f"#### :x: {role}")
             click.echo(f"{role} delegations have open invites ({', '.join(status.invites)}).")
-            click.echo(f"Invitees can accept the invitations by running `playground-sign {event_name}`")
+            click.echo(f"Invitees can accept the invitations by running `playground-sign`")
         elif role_is_valid:
             click.echo(f"#### :heavy_check_mark: {role}")
             click.echo(f"{role} is verified and signed by {sig_counts} signers ({', '.join(signed)}).")
@@ -85,6 +85,6 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
 
         if missing and not status.invites:
             click.echo(f"Still missing signatures from {', '.join(missing)}")
-            click.echo(f"Signers can sign these changes by running `playground-sign {event_name}`")
+            click.echo(f"Signers can sign these changes by running `playground-sign`")
     
     sys.exit(failures)

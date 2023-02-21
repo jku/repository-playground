@@ -4,8 +4,6 @@
 
 from copy import deepcopy
 import copy
-import random
-import string
 import subprocess
 import click
 from configparser import ConfigParser
@@ -155,32 +153,6 @@ def _git(cmd: list[str]) -> str:
     return proc.stdout.strip()
 
 
-def _checkout(remote: str, branch: str) -> str:
-    # TODO prepare for all kinds of mistakes:
-    # branch not existing, local branch having conflicts, current branch having changes...
-    _git(["fetch", remote, branch])
-
-    # we want a new branch that does not exist
-    rand_s = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
-    new_branch = f"{branch}-{rand_s}"
-    _git(["checkout", "--track", "-b", new_branch, f"{remote}/{branch}"])
-    return new_branch
-
-
-def _push(signing_event: str, pull_remote: str, push_remote: str, branch: str):
-     # push to signing event branch if we can push there
-    if pull_remote == push_remote:
-        _git(["push", push_remote, f"{branch}:{signing_event}"])
-        click.echo(f"{signing_event} updated")
-    else:
-        _git(["push", push_remote, f"{branch}:{branch}"])
-        # TODO: Unsure how to build this hard coded URL easily... maybe parsing "git config --get remote.{remote}.url"?
-        # maybe should add configuration for project name?
-        click.echo(
-            f"Create a pull request for {signing_event} on GitHub by visiting:\n"
-            f"    https://github.com/jku/test-repo-for-playground/compare/{signing_event}...{branch}?expand=1"
-        )
-
 def _init_repository(repo: SignerRepository) -> bool:
     click.echo("Creating a new Playground TUF repository")
 
@@ -226,24 +198,15 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
-@click.argument("signing-event")
 @click.argument("role", required=False)
-def delegate(verbose: int, signing_event: str, role: str | None):
+def delegate(verbose: int, role: str | None):
     """Tool for modifying Repository Playground delegations."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = _git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
 
-    # TODO: check that this is a playground repository,
-    # so we don't start creating metadata in random git repos
-
     settings = _read_settings(os.path.join(toplevel, ".playground-sign.ini"))
-
-    # TODO support not-doing-network-ops
-    # TODO: maybe do this in a temp dir to avoid messing the users git env (see error handling later)
-    # The issue with this is that it hides the git changes from user who might want to look at them
-    branch = _checkout(settings["pull-remote"], signing_event)
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
@@ -264,9 +227,9 @@ def delegate(verbose: int, signing_event: str, role: str | None):
         raise click.UsageError("ROLE is required")
 
     if changed:
-        try:
-            _git(["add", metadata_dir])
-            _git(["commit", "-m", f"Changes for {signing_event}"])
-            _push(signing_event, settings["pull-remote"], settings["push-remote"], branch)
-        except subprocess.CalledProcessError as e:
-            click.echo(f"Error: {e.stderr}")
+        click.echo(
+            "Done. Tool does not commit or push at the moment. Try\n"
+            "  git add metadata\n"
+            f"  git commit -m 'Delegation change by {user_name}'\n"
+            f"  git push origin <signing_event>"
+        )

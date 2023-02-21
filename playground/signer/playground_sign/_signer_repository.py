@@ -283,9 +283,10 @@ class SignerRepository(Repository):
                     delegator.revoke_key(keyid, rolename)
 
             # Add user themselves
-            if self.user_name in config.signers:
+            if self.user_name in config.signers and signing_key:
                 signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
                 delegator.add_key(signing_key, rolename)
+                config.signers.remove(self.user_name)
 
             role.threshold = config.threshold
 
