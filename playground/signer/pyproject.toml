@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# for git dependencies
+allow-direct-references = true
+
+[project]
+name = "playground-sign"
+version = "0.0.1"
+description = "TUF signing tool for Repository Plaground"
+readme = "README.md"
+dependencies = [
+  "securesystemslib[gcpkms,hsm]", 
+  "tuf @ git+https://github.com/theupdateframework/python-tuf",
+  "click",
+]
+
+[project.scripts]
+playground-delegate = "playground_sign:delegate"
+playground-sign = "playground_sign:sign"

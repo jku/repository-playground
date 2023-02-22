@@ -77,22 +77,27 @@ git-integration like doing a pull automatically).
 
 ## Custom metadata 
 
-Custom metadata and how it is used
+Custom metadata and how it is used. All custom field names should be prefixed with "x-playground-" to
+A) make it clear it's custom and B) make collisions unlikely.
 
-* key.signer-username
+* key.x-playground-keyowner
   * used by tool to know when to sign
   * used by repo to notify @username
-* key.online-uri
+* key.x-playground-online-uri
   * used by repo to sign with online key
-* role.invites
-  * used by repo to notify invited usernames
-  * used by tool to accept invitations
-* role.expiry-period & role.signing-period (for all online roles)
+* role.x-playground-expiry-period & role.x-playground-signing-period (for all online roles)
   * used by repo to decide when new timestamp/snapshot is needed and to decide the new expiry date
-  * for other roles could be used to decide what expiry dates are allowed by repo
-* signed.expiry-period & signed.signing-period (for all offline roles)
+  * signing-period may not be needed -- maybe we can predict what is safe?
+* signed.x-playground-expiry-period & signed.x-playground-signing-period (for all offline roles)
   * used by repo to decide when to start a signing event
   * used by tool to bump version
+
+In addition to signed metadata, the following data is commited to git during the signing event (but is
+not part of the actual signed repository):
+* invitations 
+  * set by signer tool
+  * used by repo to notify invited usernames
+  * used by signer tool to accept invitations
 
 ## GitHub Actions that should be provided
 
@@ -107,6 +112,7 @@ Custom metadata and how it is used
     * if signing-period for a role is reached, start a signing event (branch)
     * construct the version bump commit in the branch
       (alternatively, let signing tool create the version bump)
+    * request signatures
   * check each online role
     * if signing-period for a role is reached, create new version and sign
       (if snapshot changed, also bump timestamp)
@@ -178,8 +184,6 @@ signer <signing-event>` -- this could do everything from pulling the branch, exp
   ```
   username = @jku
   pkcs11lib = /usr/lib/x86_64-linux-gnu/libykcs11.so
-  origin = origin
-  fork = jku
   ```
 
 ### Repository configuration
