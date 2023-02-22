@@ -1,0 +1,13 @@
+name: 'Compile Playground repository'
+description: 'Compile a deploy-ready TUF metadata repository'
+inputs:
+  path:
+    description: 'Directory to create the metadata in'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - run: mkdir "$INPUT_PATH" && echo "test content..." >> "$INPUT_PATH/root.json"
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
