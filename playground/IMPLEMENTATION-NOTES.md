@@ -98,10 +98,6 @@ not part of the actual signed repository):
   * set by signer tool
   * used by repo to notify invited usernames
   * used by signer tool to accept invitations
-* requested signatures
-  * set by repository
-  * used by signer tool to sign
-
 
 ## GitHub Actions that should be provided
 

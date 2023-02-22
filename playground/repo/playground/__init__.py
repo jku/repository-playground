@@ -1,2 +1,1 @@
 from playground.status import status_cli
-from playground.update_event_state import request_signatures

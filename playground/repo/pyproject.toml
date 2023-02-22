@@ -19,4 +19,3 @@ dependencies = [
 
 [project.scripts]
 playground-status = "playground:status_cli"
-playground-request-signatures = "playground:request_signatures"

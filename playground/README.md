@@ -84,7 +84,6 @@ See [https://github.com/jku/playground-template]
 Status:
 * actions/signing-event is partially implemented
 * the CLI commands needed by actions/signing-event are partially implemented
-  * playground-request-signatures
   * playground-status
 
 Not implemented yet
