@@ -18,4 +18,5 @@ dependencies = [
 ]
 
 [project.scripts]
+playground-publish = "playground:publish"
 playground-status = "playground:status_cli"

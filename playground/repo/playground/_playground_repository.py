@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from glob import glob
 import json
 import os
+import shutil
 from securesystemslib.exceptions import UnverifiedSignatureError
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
@@ -192,3 +194,17 @@ class PlaygroundRepository(Repository):
             delegator = self.open("targets")
 
         return self._get_signing_status(delegator, rolename), prev_status
+
+    def publish(self, directory: str):
+        for src_path in glob(os.path.join(self._dir, "root_history", "*.root.json")):
+            shutil.copy(src_path, directory)
+        shutil.copy(os.path.join(self._dir, "timestamp.json"), directory)
+
+        md: Metadata[Snapshot] = self.open("snapshot")
+        dst_path = os.path.join(directory, f"{md.signed.version}.snapshot.json")
+        shutil.copy(os.path.join(self._dir, "snapshot.json"), dst_path)
+
+        for filename, metafile  in md.signed.meta.items():
+            src_path = os.path.join(self._dir, filename)
+            dst_path = os.path.join(directory, f"{metafile.version}.{filename}")
+            shutil.copy(src_path, dst_path)
