@@ -2,7 +2,7 @@
 
 This is a place to develop workflows and Best Practices for community artifact repositories (like PyPI or npm). To accomplish that we intend to implement a community repository of our own: A service that works like "real" artifact repositories like PyPI but is able to experiment more freely.
 
-The first goal is to define and implement a working TUF model for community artifact repositories.
+Current active milestone for the project is to implement a _TUF repository on a CI system_ but this goal will evolve over time.
 
 If you'd like to reach out, you can file an issue in this project or come and say hi on [python-tuf slack](https://cloud-native.slack.com/archives/C01GT17AC5D). Any mail sent to jku at goto.fi will also be read, sooner or later.
 
@@ -22,7 +22,7 @@ We're hoping Repository playground is used to solve other security problems that
 * The security improvement is significant: Most importantly TUF can ensure that a compromise of the repository infrastructure does not lead to end-user device compromise
 * Implementing TUF in this context is not trivial: Without a concentrated effort this is unlikely to happen in the repository projects themselves
 
-More details in documentation:
+More details in [documentation](docs/):
  * [Concept](docs/CONCEPT.md)
  * [TUF roadmap](docs/TUF-ROADMAP.md): How we plan to get to _secure and usable developer signed artifact repository_.
  * [TUF Design Questions](docs/TUF-DESIGN-QUESTIONS.md): What are some of unexplored issues with TUF in the community artifact repository use case
