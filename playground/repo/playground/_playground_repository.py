@@ -35,11 +35,6 @@ class SigningEventState:
                 signers.append(invited_signer)
         return signers
 
-    def write(self):
-        with open(self._file_path, "w") as f:
-            data = {"invites": self._invites}
-            f.write(json.dumps(data, indent=2))
-
 
 class PlaygroundRepository(Repository):
     """A online repository implementation for use in GitHub Actions
@@ -138,7 +133,7 @@ class PlaygroundRepository(Repository):
 
         # Build list of invites to all delegated roles of rolename
         if rolename == "root":
-            delegation_names = md.signed.roles.keys()
+            delegation_names = ["root", "targets"]
         elif rolename == "targets":
             delegation_names = []
             if md.signed.delegations:
