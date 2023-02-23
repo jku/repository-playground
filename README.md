@@ -23,6 +23,7 @@ We're hoping Repository playground is used to solve other security problems that
 * Implementing TUF in this context is not trivial: Without a concentrated effort this is unlikely to happen in the repository projects themselves
 
 More details in [documentation](docs/):
+ * [Current milestone: TUF-on-CI](playground/)
  * [Concept](docs/CONCEPT.md)
  * [TUF roadmap](docs/TUF-ROADMAP.md): How we plan to get to _secure and usable developer signed artifact repository_.
  * [TUF Design Questions](docs/TUF-DESIGN-QUESTIONS.md): What are some of unexplored issues with TUF in the community artifact repository use case
