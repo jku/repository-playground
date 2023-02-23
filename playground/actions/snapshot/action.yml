@@ -1,0 +1,41 @@
+name: 'Snapshot & timestamp'
+description: 'Produce new snapshot & timestamp versions if their content needs changing'
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+
+    - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435
+      with:
+        python-version: 3.11
+
+    - run: pip install $GITHUB_ACTION_PATH/../../repo/
+      shell: bash
+
+    - name: Authenticate to Google Cloud
+      if: steps.metadata-init.outputs.init == 'true'
+      uses: google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d
+      with:
+        token_format: access_token
+        workload_identity_provider: projects/843741030650/locations/global/workloadIdentityPools/git-repo-demo/providers/git-repo-demo
+        service_account: git-repo-demo@python-tuf-kms.iam.gserviceaccount.com
+
+    - run: |
+        playground-snapshot
+        git add repository/snapshot.json repository/timestamp.json
+
+        git diff --cached --exit-code || echo "SNAPSHOT=true" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Commit snapshot
+      run: |
+        if [ "$SNAPSHOT" = "true" ]; then
+          git config user.name "Playground snapshot & timestamp"
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -a -m "Snapshot & timestamp"
+          git show
+          git push origin main
+        else
+          echo "No snapshot/timestamp produced"
+        fi
+      shell: bash

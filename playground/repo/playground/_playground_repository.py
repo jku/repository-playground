@@ -1,16 +1,21 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from glob import glob
 import json
+import logging
 import os
 import shutil
 from securesystemslib.exceptions import UnverifiedSignatureError
+from securesystemslib.signer import Signer
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
 from tuf.repository import Repository
-from tuf.api.serialization.json import CanonicalJSONSerializer
+from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 
 # TODO Add a metadata cache so we don't constantly open files
 # TODO; Signing status probably should include an error message when valid=False
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SigningStatus:
@@ -93,26 +98,63 @@ class PlaygroundRepository(Repository):
 
         return md
 
-    def close(self, role: str, md: Metadata) -> None:
+    def close(self, rolename: str, md: Metadata) -> None:
         """Write metadata to a file in repo dir
         
         Implementation of Repository.close()
         """
-        if role not in ["timestamp", "snapshot"]:
-            raise ValueError(f"Cannot store new {role} metadata")
+        if rolename not in ["timestamp", "snapshot"]:
+            raise ValueError(f"Cannot store new {rolename} metadata")
 
-        # TODO sign and write file
-        raise NotImplementedError
+        md.signed.version += 1
+
+        root_md:Metadata[Root] = self.open("root")
+        role = root_md.signed.roles[rolename]
+        days = role.unrecognized_fields["x-playground-expiry-period"]
+        md.signed.expires = datetime.utcnow() + timedelta(days=days)
+
+        md.signatures.clear()
+        for key in self._get_keys(rolename):
+            uri = key.unrecognized_fields["x-playground-online-uri"]
+            signer = Signer.from_priv_key_uri(uri, key)
+            md.sign(signer, True)
+
+        filename = self._get_filename(rolename)
+        data = md.to_bytes(JSONSerializer())
+        with open(filename, "wb") as f:
+            f.write(data)
+
 
     @property
     def targets_infos(self) -> dict[str, MetaFile]:
-        """Implementation of Repository.target_infos"""
-        raise NotImplementedError
+        """Implementation of Repository.target_infos
+
+        Called by snapshot() when it needs current targets versions
+        """
+        # Note that this ends up loading every targets metadata. This could be
+        # avoided if this data was produced in the signing event (as then we
+        # know which targets metadata changed). Snapshot itself should not be
+        # done before the signing event PR is reviewed though as the online keys
+        # are then exposed
+        targets_files: dict[str, MetaFile] = {}
+
+        md:Metadata[Targets] = self.open("targets")
+        targets_files["targets.json"] = MetaFile(md.signed.version)
+        if md.signed.delegations and md.signed.delegations.roles:
+            for role in md.signed.delegations.roles.values():
+                version = self.open(role).signed.version
+                targets_files[f"{role.name}.json"] = MetaFile(version)
+
+        return targets_files
 
     @property
     def snapshot_info(self) -> MetaFile:
-        """Implementation of Repository.snapshot_info"""
-        raise NotImplementedError
+        """Implementation of Repository.snapshot_info
+
+        Called by timestamp() when it needs current snapshot version
+        """
+        md = self.open("snapshot")
+        return MetaFile(md.signed.version)
 
     def open_prev(self, role:str) -> Metadata | None:
         """Return known good metadata for role (if it exists)"""
@@ -208,3 +250,17 @@ class PlaygroundRepository(Repository):
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(directory, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
+
+    def snapshot(self, force: bool = False) -> tuple[bool, dict[str, MetaFile]]:
+        # TODO Fix this properly: This method only exists to workaround
+        # https://github.com/theupdateframework/python-tuf/issues/2307
+        res = super().snapshot(force)
+        if not os.path.exists(os.path.join(self._dir, "snapshot.json")):
+            logger.debug("Workaround: manually creating initial online roles")
+            with self.edit("snapshot"):
+                pass
+            with self.edit("timestamp"):
+                pass
+            return True, {}
+        else:
+            return res
