@@ -12,14 +12,6 @@ runs:
     - run: pip install $GITHUB_ACTION_PATH/../../repo/
       shell: bash
 
-    - name: Authenticate to Google Cloud
-      if: steps.metadata-init.outputs.init == 'true'
-      uses: google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d
-      with:
-        token_format: access_token
-        workload_identity_provider: projects/843741030650/locations/global/workloadIdentityPools/git-repo-demo/providers/git-repo-demo
-        service_account: git-repo-demo@python-tuf-kms.iam.gserviceaccount.com
-
     - run: |
         playground-snapshot
         git add repository/snapshot.json repository/timestamp.json
