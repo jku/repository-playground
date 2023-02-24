@@ -88,8 +88,12 @@ class PlaygroundRepository(Repository):
                 raise ValueError(f"Cannot create new {role} metadata")
             if role == "timestamp":
                 md = Metadata(Timestamp())
+                # workaround https://github.com/theupdateframework/python-tuf/issues/2307
+                md.signed.snapshot_meta.version = 0
             else:
                 md = Metadata(Snapshot())
+                # workaround https://github.com/theupdateframework/python-tuf/issues/2307
+                md.signed.meta.clear()
             # this makes version bumping in close() simpler
             md.signed.version = 0
         else:
@@ -250,17 +254,3 @@ class PlaygroundRepository(Repository):
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(directory, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
-
-    def snapshot(self, force: bool = False) -> tuple[bool, dict[str, MetaFile]]:
-        # TODO Fix this properly: This method only exists to workaround
-        # https://github.com/theupdateframework/python-tuf/issues/2307
-        res = super().snapshot(force)
-        if not os.path.exists(os.path.join(self._dir, "snapshot.json")):
-            logger.debug("Workaround: manually creating initial online roles")
-            with self.edit("snapshot"):
-                pass
-            with self.edit("timestamp"):
-                pass
-            return True, {}
-        else:
-            return res
