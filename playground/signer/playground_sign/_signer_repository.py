@@ -13,6 +13,7 @@ from typing import Callable
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer
 
+from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Targets
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository, AbortEdit
@@ -153,7 +154,13 @@ class SignerRepository(Repository):
             return self._get_secret(secret, role)
 
         signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
-        md.sign(signer, True)
+        while True:
+            try:
+                md.sign(signer, True)
+                break
+            except UnsignedMetadataError:
+                print(f"Failed to sign {role} with {self.user_name} key. Try again?")
+
 
     def _write(self, role: str, md: Metadata) -> None:
         filename = self._get_filename(role)
