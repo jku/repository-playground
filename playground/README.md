@@ -46,8 +46,8 @@ Current signing requirements are:
 
 1. Fork the [template](https://github.com/jku/playground-template). Enable
    _Settings->Actions->Allow GitHub Actions to create and approve pull requests_.
-1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`. Add `deploy` as
-   a deployment branch in _Settings->Environments_.
+1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`. `main`
+   should be enabled as deployment branch in _Settings->Environments->GitHub Pages_.
 1. Make sure Google Cloud allows this repository OIDC identity to sign with a KMS key
 
 ### Create TUF metadata (the initial signing event)
