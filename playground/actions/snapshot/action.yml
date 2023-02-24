@@ -1,5 +1,11 @@
 name: 'Snapshot & timestamp'
 description: 'Produce new snapshot & timestamp versions if their content needs changing'
+
+outputs:
+  generated:
+    description: "'true' if a new snapshot & timestamp were generated"
+    value: ${{ steps.snapshot.outputs.generated }}
+
 runs:
   using: "composite"
   steps:
@@ -14,24 +20,41 @@ runs:
     - run: pip install $GITHUB_ACTION_PATH/../../repo/
       shell: bash
 
-    - run: |
+    - id: snapshot
+      run: |
         cd repository
         playground-snapshot
         git add metadata/snapshot.json metadata/timestamp.json
 
-        git diff --cached --exit-code || echo "SNAPSHOT=true" >> $GITHUB_ENV
+        if git diff --cached --exit-code; then
+          echo "generated=false" >> $GITHUB_OUTPUT
+        else
+          echo "generated=true" >> $GITHUB_OUTPUT
+        fi
       shell: bash
 
     - name: Commit snapshot
+      if: steps.snapshot.outputs.generated == 'true'
       run: |
         cd repository
-        if [ "$SNAPSHOT" = "true" ]; then
-          git config user.name "Playground snapshot & timestamp"
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -a -m "Snapshot & timestamp"
-          git show
-          git push origin main
-        else
-          echo "No snapshot/timestamp produced"
-        fi
+        git config user.name "Playground snapshot & timestamp"
+        git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+        git commit -a -m "Snapshot & timestamp"
+        git show
+        git push origin main
       shell: bash
+
+    - name: Create a deploy-ready metadata repository version
+      if: steps.snapshot.outputs.generated == 'true'
+      run: |
+        mkdir publish
+        cd repository
+        playground-publish "../publish"
+        ls -l "../publish"
+      shell: bash
+
+    - name: Upload repository artifact for GitHub Pages
+      if: steps.snapshot.outputs.generated == 'true'
+      uses: actions/upload-pages-artifact@253fd476ed429e83b7aae64a92a75b4ceb1a17cf
+      with:
+        path: publish/
