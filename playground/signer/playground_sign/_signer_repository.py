@@ -351,9 +351,13 @@ class SignerRepository(Repository):
             if rolename not in self._invites[signer]:
                 self._invites[signer].append(rolename)
 
-        with open(os.path.join(self._dir, ".signing-event-state"), "w") as f:
-            config = {"invites": self._invites}
-            f.write(json.dumps(config, indent=2))
+        state_file_path = os.path.join(self._dir, ".signing-event-state")
+        if self._invites:
+            with open(state_file_path, "w") as f:
+                config = {"invites": self._invites}
+                f.write(json.dumps(config, indent=2))
+        elif os.path.exists(state_file_path):
+            os.remove(state_file_path)
 
     def status(self, rolename: str) -> str:
         return "TODO: Describe the changes in the signing event for this role"
