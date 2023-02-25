@@ -72,6 +72,15 @@ def sign(verbose: int):
                 click.echo(repo.status(rolename))
                 repo.sign(rolename)
             changed = True
+        elif repo.state == SignerState.TARGETS_CHANGED:
+            click.echo(f"Following local target files changes have been found:")
+            for rolename, states in repo.target_changes.items():
+                for target_state in states.values():
+                    click.echo(f"  {target_state.target.path} ({target_state.state.name})")
+            click.prompt("Press enter to approve these changes", default=True, show_default=False)
+
+            repo.update_targets()
+            changed = True
         elif repo.state == SignerState.NO_ACTION:
             changed = False
         else:
