@@ -24,6 +24,7 @@ class SigningStatus:
     missing: set[str]
     threshold: int
     valid: bool
+    message: str
 
 class SigningEventState:
     """Class to manage the .signing-event-state file"""
@@ -169,6 +170,41 @@ class PlaygroundRepository(Repository):
 
         return None
 
+    def _validate_role(self, delegator: Metadata, rolename: str) -> tuple[bool, str | None]:
+        """Validate role compatibility with this repository
+
+        Returns bool for validity and optional error message"""
+        md = self.open(rolename)
+        prev_md = self.open_prev(rolename)
+
+        # Current checks are more examples than actual checks: this should be much more strict
+
+        if prev_md and md.signed.version <= prev_md.signed.version:
+            return False, f"Version {md.signed.version} is not valid for {rolename}"
+
+        days = md.signed.unrecognized_fields["x-playground-expiry-period"]
+        if md.signed.expires > datetime.utcnow() + timedelta(days=days):
+            return False, f"Expiry date is further than expected {days} days ahead"
+
+        # TODO for root:
+        # * check version is prev_version + 1
+        # * check delegations are correct, consistent_snapshot is on
+
+        # TODO for top-level targets:
+        # * check delegations are expected
+        # * check that target files in metadata match the files in targets/
+
+        # TODO for delegated targets:
+        # * check there are no delegations
+        # * check that target files in metadata match the files in targets/
+
+        try:
+            delegator.verify_delegate(rolename, md)
+        except:
+            return False, None
+
+        return True, None
+
     def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
         """Build signing status for role.
 
@@ -189,7 +225,6 @@ class PlaygroundRepository(Repository):
         for delegation_name in delegation_names:
             invites.update(self._state.invited_signers_for_role(delegation_name))
 
-        prev_md = self.open_prev(rolename)
         role = delegator.signed.get_delegated_role(rolename)
 
         # Build lists of signed signers and not signed signers
@@ -203,19 +238,9 @@ class PlaygroundRepository(Repository):
                 missing_sigs.add(keyowner)
 
         # Just to be sure: double check that delegation threshold is reached
-        valid = True
-        try:
-            delegator.verify_delegate(rolename,md)
-        except:
-            valid = False
+        valid, msg = self._validate_role(rolename)
 
-        # Other checks to ensure repository continuity        
-        if prev_md and md.signed.version <= prev_md.signed.version:
-            valid = False
-
-        # TODO more checks here
-
-        return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid)
+        return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid, msg)
 
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
