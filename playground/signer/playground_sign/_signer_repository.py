@@ -215,15 +215,6 @@ class SignerRepository(Repository):
 
         self._write(role, md)
 
-    # NOTE: python-tuf should be changed so these are not required
-    @property
-    def targets_infos(self) -> dict[str, MetaFile]:
-        raise NotImplementedError
-
-    @property
-    def snapshot_info(self) -> MetaFile:
-        raise NotImplementedError
-
     def get_online_config(self) -> OnlineConfig:
         """Read configuration for online delegation from metadata"""
         root: Root = self.open("root").signed
