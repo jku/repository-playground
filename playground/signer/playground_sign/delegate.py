@@ -152,12 +152,17 @@ def _update_online_roles(repo) -> bool:
     return True
 
 def _update_offline_role(repo: SignerRepository, role: str) -> bool:
-    click.echo(f"Modifying delegation for {role}")
 
     config = repo.get_role_config(role)
-    new_config = _get_offline_input(role, config)
-    if new_config == config:
-        return False
+    if not config:
+        # Non existent role
+        click.echo(f"Creating a new delegation for {role}")
+        new_config = _get_offline_input(role, OfflineConfig([repo.user_name], 1, 365, 60))
+    else:
+        click.echo(f"Modifying delegation for {role}")
+        new_config = _get_offline_input(role, config)
+        if new_config == config:
+            return False
 
     key = None
     if repo.user_name in new_config.signers:

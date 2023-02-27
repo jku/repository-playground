@@ -15,7 +15,7 @@ from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer
 
 from tuf.api.exceptions import UnsignedMetadataError
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, TargetFile, Targets
+from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Root, TargetFile, Targets
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository, AbortEdit
 
@@ -344,7 +344,11 @@ class SignerRepository(Repository):
             delegator = self.open("root")
         else:
             delegator = self.open("targets")
-        role = delegator.signed.get_delegated_role(rolename)
+
+        try:
+            role = delegator.signed.get_delegated_role(rolename)
+        except ValueError:
+            return None
 
         expiry = md.signed.unrecognized_fields["x-playground-expiry-period"]
         signing = md.signed.unrecognized_fields["x-playground-signing-period"]
@@ -379,7 +383,16 @@ class SignerRepository(Repository):
         with self.edit(delegator_name) as delegator:
             # Handle existing signers
             changed = False
-            role = delegator.get_delegated_role(rolename)
+            try:
+                role = delegator.get_delegated_role(rolename)
+            except ValueError:
+                # Role does not exist yet: create delegation
+                role = DelegatedRole(rolename, [], 1, True, [f"{rolename}/*"])
+                if not delegator.delegations:
+                    delegator.delegations = Delegations({}, {})
+                delegator.delegations.roles[rolename] = role
+                changed = True
+
             for keyid in role.keyids:
                 key = delegator.get_key(keyid)
                 if key.unrecognized_fields["x-playground-keyowner"] in config.signers:
@@ -400,7 +413,6 @@ class SignerRepository(Repository):
             if role.threshold != config.threshold:
                 changed = True
             role.threshold = config.threshold
-
             if not changed:
                 # Exit the edit-contextmanager without saving if no changes were done
                 raise AbortEdit(f"No changes to delegator of {rolename}")
