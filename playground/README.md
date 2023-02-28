@@ -67,7 +67,7 @@ Whenver you run signing tools, you need a configuration file `.playground-sign.i
 
 1. Run delegate tool
    ```
-   playground-delegate <role>
+   playground-delegate
    ```
 1. Commit all changes in `metadata/`, push to a branch `sign/<signing-event-name>`
 
