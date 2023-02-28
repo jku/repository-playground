@@ -5,6 +5,7 @@
 from copy import deepcopy
 import copy
 from tempfile import TemporaryDirectory
+from typing import Optional
 import click
 import logging
 import os
@@ -170,7 +171,7 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.argument("role", required=False)
-def delegate(verbose: int, role: str | None):
+def delegate(verbose: int, role: Optional[str]):
     """Tool for modifying Repository Playground delegations."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 

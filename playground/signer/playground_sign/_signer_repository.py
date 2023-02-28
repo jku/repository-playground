@@ -9,7 +9,7 @@ from glob import glob
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Callable
+from typing import Callable, Optional
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer
 
@@ -50,8 +50,8 @@ class SignerState(Enum):
 
 @dataclass
 class OnlineConfig:
-    key: Key | None
-    uri: str | None
+    key: Optional[Key]
+    uri: Optional[str]
     timestamp_expiry: int
     snapshot_expiry: int
 
@@ -136,7 +136,7 @@ class SignerRepository(Repository):
     def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
         if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.open("root").signed
+            delegator = self.open("root").signed
         else:
             delegator = self.open("targets").signed
 
@@ -250,7 +250,7 @@ class SignerRepository(Repository):
 
         md = self.open(rolename)
         if rolename == "root":
-            delegator:Metadata[Root|Targets] = md
+            delegator = md
         elif rolename == "targets":
             delegator = self.open("root")
         else:
@@ -275,7 +275,7 @@ class SignerRepository(Repository):
 
         return OfflineConfig(signers, threshold, expiry, signing)
 
-    def set_role_config(self, rolename: str, config: OfflineConfig, signing_key: Key | None):
+    def set_role_config(self, rolename: str, config: OfflineConfig, signing_key: Optional[Key]):
         """Store delegation & role configuration in metadata.
 
         signing_key is only used if user is configured as signer"""
