@@ -65,9 +65,11 @@ Whenver you run signing tools, you need a configuration file `.playground-sign.i
 
 ### Initial signing event
 
-1. create a new branch with a branch name starting with "sign/"
-1. Run `playground-delegate`, answer the questions
-1. Commit the changes, push to the branch
+1. Run delegate tool
+   ```
+   playground-delegate <role>
+   ```
+1. Commit all changes in `metadata/`, push to a branch `sign/<signing-event-name>`
 
 This starts a signing event.
 
@@ -82,13 +84,13 @@ This starts a signing event.
 
 This starts a signing event.
 
-### Modify delegations
+### Add a delegation or modify an existing one
 
 1. Run delegate tool
    ```
    playground-delegate <role>
    ```
-2. Commit metadata changes and push to a branch `sign/<signing-event-name>`
+1. Commit all changes in `metadata/`, push to a branch `sign/<signing-event-name>`
 
 This starts a signing event.
 
