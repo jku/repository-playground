@@ -160,7 +160,7 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
         return False
 
     key = None
-    if repo.user_name in config.signers:
+    if repo.user_name in new_config.signers:
         key = get_signing_key_input("Insert your HW key and press enter")
 
     repo.set_role_config(role, new_config, key)
