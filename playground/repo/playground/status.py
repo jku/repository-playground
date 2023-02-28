@@ -68,7 +68,6 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
         if not role_is_valid or status.invites:
             failures += 1
 
-        # TODO: get reasons for verify failure from repo, print that
         if status.invites:
             click.echo(f"#### :x: {role}")
             click.echo(f"{role} delegations have open invites ({', '.join(status.invites)}).")
@@ -83,7 +82,9 @@ def status_cli(verbose: int, known_good_dir: str, event_name: str) -> None:
             click.echo(f"#### :x: {role}")
             click.echo(f"{role} is unsigned and not yet verified")
 
-        if missing and not status.invites:
+        if status.message:
+            click.echo(f"**Error**: {status.message}")
+        elif missing and not status.invites:
             click.echo(f"Still missing signatures from {', '.join(missing)}")
             click.echo(f"Signers can sign these changes by running `playground-sign`")
     
