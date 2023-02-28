@@ -16,6 +16,7 @@ dependencies = [
   "tuf @ git+https://github.com/theupdateframework/python-tuf",
   "click",
 ]
+requires-python = ">=3.10"
 
 [project.scripts]
 playground-publish = "playground:publish"
