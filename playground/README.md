@@ -17,7 +17,7 @@ This is a Work-In-Progress: any code should be seen as experimental for now.
 * [Design document](https://docs.google.com/document/d/140jiFHGc3wwEmNaJmUdgkNeNK4i4CC-lm5-eVQYXiL0)
 * [Implementation notes](IMPLEMENTATION-NOTES.md)
 
-## Setup & operation
+## Setup
 
 Current signing requirements are:
  * A HW key with PIV support (such as a newer Yubikey)
@@ -42,6 +42,17 @@ Current signing requirements are:
    [gcloud](https://cloud.google.com/sdk/docs/install), authenticate (you need
    _roles/cloudkms.publicKeyViewer_ permission)
 
+### Configure signer
+
+Whenver you run signing tools, you need a configuration file `.playground-sign.ini` in the root dir of the git repository that contains the metadata:
+   ```
+   [settings]
+   # Path to PKCS#11 module
+   pykcs11lib = /usr/lib/x86_64-linux-gnu/libykcs11.so
+   # GitHub username
+   user-name = @my-github-username
+   ```
+
 ### Setup a new Playground repository
 
 1. Fork the [template](https://github.com/jku/playground-template). Enable
@@ -50,27 +61,48 @@ Current signing requirements are:
    should be enabled as deployment branch in _Settings->Environments->GitHub Pages_.
 1. Make sure Google Cloud allows this repository OIDC identity to sign with a KMS key
 
-### Create TUF metadata (the initial signing event)
+## Operation
 
-1. checkout your new git repository, create a configuration file `.playground-sign.ini` in the root dir:
-   ```
-   [settings]
-   # Path to PKCS#11 module
-   pykcs11lib = /usr/lib/x86_64-linux-gnu/libykcs11.so
-   # GitHub username
-   user-name = @my-github-username
-   ```
+### Initial signing event
+
 1. create a new branch with a branch name starting with "sign/"
 1. Run `playground-delegate`, answer the questions
 1. Commit the changes, push to the branch
-1. Follow advice in the signing event GitHub issue that gets opened
 
-### TODO
+This starts a signing event.
 
-Document:
-* How to sign
-* How to modify delegations 
-* How to modify target files
+### Modify target files
+
+1. Add, remove or modify files under targets/ directory
+1. Run signer tool
+   ```
+   playground-sign
+   ```
+1. Commit changes (both target files and metadata) and push to a branch `sign/<signing-event-name>`
+
+This starts a signing event.
+
+### Modify delegations
+
+1. Run delegate tool
+   ```
+   playground-delegate <role>
+   ```
+2. Commit metadata changes and push to a branch `sign/<signing-event-name>`
+
+This starts a signing event.
+
+### Sign changes made by others
+
+Signing should be done when the signing event (GitHub issue) asks for it:
+
+1. Run signer tool in the signing event branch
+   ```
+   playground-sign
+   ```
+2. Commit metadata changes and push to a branch `sign/<signing-event-name>`
+
+This updates the signing event.
 
 ## Components
 
