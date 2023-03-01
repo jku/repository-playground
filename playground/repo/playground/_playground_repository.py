@@ -6,10 +6,10 @@ import logging
 import os
 import shutil
 from securesystemslib.exceptions import UnverifiedSignatureError
-from securesystemslib.signer import Signer
+from securesystemslib.signer import Signature, Signer
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
-from tuf.repository import Repository
+from tuf.repository import AbortEdit, Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 
 # TODO Add a metadata cache so we don't constantly open files
@@ -106,23 +106,28 @@ class PlaygroundRepository(Repository):
     def close(self, rolename: str, md: Metadata) -> None:
         """Write metadata to a file in repo dir
         
-        Implementation of Repository.close()
+        Implementation of Repository.close(). Signs online roles.
         """
-        if rolename not in ["timestamp", "snapshot"]:
-            raise ValueError(f"Cannot store new {rolename} metadata")
-
         md.signed.version += 1
 
-        root_md:Metadata[Root] = self.open("root")
-        role = root_md.signed.roles[rolename]
-        days = role.unrecognized_fields["x-playground-expiry-period"]
+        if rolename in ["timestamp", "snapshot"]:
+            root_md:Metadata[Root] = self.open("root")
+            role = root_md.signed.roles[rolename]
+            days = role.unrecognized_fields["x-playground-expiry-period"]
+        else:
+            days = md.signed.unrecognized_fields["x-playground-expiry-period"]
+
         md.signed.expires = datetime.utcnow() + timedelta(days=days)
 
         md.signatures.clear()
         for key in self._get_keys(rolename):
-            uri = key.unrecognized_fields["x-playground-online-uri"]
-            signer = Signer.from_priv_key_uri(uri, key)
-            md.sign(signer, True)
+            if rolename in ["timestamp", "snapshot"]:
+                uri = key.unrecognized_fields["x-playground-online-uri"]
+                signer = Signer.from_priv_key_uri(uri, key)
+                md.sign(signer, True)
+            else:
+                # offline signer, add empty sig
+                md.signatures[key.keyid] = Signature(key.keyid, "")
 
         filename = self._get_filename(rolename)
         data = md.to_bytes(JSONSerializer())
@@ -279,3 +284,24 @@ class PlaygroundRepository(Repository):
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(directory, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
+
+    def bump_expiring(self, rolename:str) -> int | None:
+        """Create a new version of role if it is about to expire"""
+        now = datetime.utcnow()
+        with self.edit(rolename) as signed:
+            version = signed.version
+            if rolename in ["timestamp", "snapshot"]:
+                # TODO: should this be configurable as well?
+                # current value is 2 * cron period so we should get 3 attempts...
+                # but 13 hours is still not a lot if e.g. KMS breaks somehow
+                delta = timedelta(hours=13)
+            else:
+                days = signed.unrecognized_fields["x-playground-signing-period"]
+                delta = timedelta(weeks=100, days=days)
+
+            if now + delta < signed.expires:
+                # no need to bump version
+                version = None
+                raise AbortEdit
+
+        return version
