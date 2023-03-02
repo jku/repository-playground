@@ -66,7 +66,7 @@ Whenver you run signing tools, you need a configuration file `.playground-sign.i
 
 ### Initial signing event
 
-1. Run delegate tool
+1. Run delegate tool to create initial metadata
    ```
    playground-delegate
    ```
@@ -87,7 +87,7 @@ This starts a signing event.
 
 ### Add a delegation or modify an existing one
 
-1. Run delegate tool
+1. Run delegate tool when you want to modify a roles delegation
    ```
    playground-delegate <role>
    ```
@@ -119,13 +119,16 @@ See [https://github.com/jku/playground-template]
 ### Repository actions
 
 Status:
-* actions/signing-event is partially implemented
-* the CLI commands needed by actions/signing-event are partially implemented
-  * playground-status
+* *actions/signing-event*: functionality is there but output is a work in progress, and
+  various checks are still unimplemented 
+* *actions/snapshot*: Implemented
+* *online-version-bump*: Implemented
+* *offline-version-bump*: Implemented, but the signing event does not currently trigger
 
-Not implemented yet
-* snapshot/timestamp
-* cron version bumps
+Various parts are still very experimental
+* loads of content safety checks are missing
+* output of the signing event is a work in progress
+* failures in the actions are not visible to user
 
 See [repo/](repo/), See [actions/](actions/)
 
@@ -142,4 +145,4 @@ See [signer/](signer/)
 `client/` contains a simple downloader client. It can securely lookup and download artifacts from the repository.
 There is nothing specific to this repository implementation in the client implementation: any other client could be used. 
 
-TODO: review whether "list" is something we want to support or not.
+TODO: Client is currently not up-to-date WRT repository implementation.
