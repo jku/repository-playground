@@ -1,0 +1,40 @@
+name: 'Version bumps'
+description: 'Produce new versions of metadata that is about to expire'
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      with:
+        path: repository
+
+    - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435
+      with:
+        python-version: 3.11
+
+    - run: pip install $GITHUB_ACTION_PATH/../../repo/
+      shell: bash
+
+    - name: Bump online role versions
+      run: |
+        playground-bump-expiring snapshot
+        git add metadata/
+        if git diff --exit-code; then
+          # snapshot changed, we need a timestamp
+          playground-timestamp
+        else
+          playground-bump-expiring timestamp
+        fi
+        if git diff --exit-code; then
+          git config user.name "Playground version bump"
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -a -m "Periodic online role version bump"
+          git show
+          git push origin main
+        fi
+      shell: bash
+
+    - name: Bump offline role versions
+      run: |
+        echo TODO
+      shell: bash

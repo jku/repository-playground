@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @click.option("-v", "--verbose", count=True, default=0)
 @click.argument("rolename")
 def bump_expiring(verbose: int, rolename: str) -> None:
-    """"""
+    """Create new metadata version for ROLENAME if the role is about to expire"""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     repo = PlaygroundRepository("metadata")
