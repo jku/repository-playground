@@ -297,8 +297,9 @@ class PlaygroundRepository(Repository):
                 delta = timedelta(hours=13)
             else:
                 days = signed.unrecognized_fields["x-playground-signing-period"]
-                delta = timedelta(weeks=100, days=days)
+                delta = timedelta(days=days)
 
+            logger.debug(f"{rolename} signing period starts {signed.expires - delta}")
             if now + delta < signed.expires:
                 # no need to bump version
                 version = None
