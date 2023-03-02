@@ -238,7 +238,7 @@ class PlaygroundRepository(Repository):
                 missing_sigs.add(keyowner)
 
         # Just to be sure: double check that delegation threshold is reached
-        valid, msg = self._validate_role(rolename)
+        valid, msg = self._validate_role(delegator, rolename)
 
         return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid, msg)
 
