@@ -147,7 +147,7 @@ class PlaygroundRepository(Repository):
         targets_files["targets.json"] = MetaFile(md.signed.version)
         if md.signed.delegations and md.signed.delegations.roles:
             for role in md.signed.delegations.roles.values():
-                version = self.open(role).signed.version
+                version = self.open(role.name).signed.version
                 targets_files[f"{role.name}.json"] = MetaFile(version)
 
         return targets_files
