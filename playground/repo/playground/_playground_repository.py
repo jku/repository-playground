@@ -216,10 +216,10 @@ class PlaygroundRepository(Repository):
         md = self.open(rolename)
 
         # Build list of invites to all delegated roles of rolename
+        delegation_names = []
         if rolename == "root":
             delegation_names = ["root", "targets"]
         elif rolename == "targets":
-            delegation_names = []
             if md.signed.delegations:
                 delegation_names = md.signed.delegations.roles.keys()
         for delegation_name in delegation_names:
