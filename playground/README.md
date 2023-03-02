@@ -59,7 +59,8 @@ Whenver you run signing tools, you need a configuration file `.playground-sign.i
    _Settings->Actions->Allow GitHub Actions to create and approve pull requests_.
 1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`. `main`
    should be enabled as deployment branch in _Settings->Environments->GitHub Pages_.
-1. Make sure Google Cloud allows this repository OIDC identity to sign with a KMS key
+1. Make sure Google Cloud allows this repository OIDC identity to sign with a KMS key.
+   Insert the GCP authentication details into .github/workflows/snapshot.yml
 
 ## Operation
 
