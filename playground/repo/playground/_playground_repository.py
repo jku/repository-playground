@@ -288,8 +288,8 @@ class PlaygroundRepository(Repository):
     def bump_expiring(self, rolename:str) -> int | None:
         """Create a new version of role if it is about to expire"""
         now = datetime.utcnow()
+        bumped = True
         with self.edit(rolename) as signed:
-            version = signed.version
             if rolename in ["timestamp", "snapshot"]:
                 # TODO: should this be configurable as well?
                 # current value is 2 * cron period so we should get 3 attempts...
@@ -302,7 +302,7 @@ class PlaygroundRepository(Repository):
             logger.debug(f"{rolename} signing period starts {signed.expires - delta}")
             if now + delta < signed.expires:
                 # no need to bump version
-                version = None
+                bumped = False
                 raise AbortEdit
 
-        return version
+        return signed.version if bumped else None
