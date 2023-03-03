@@ -25,9 +25,9 @@ Current signing requirements are:
 
 ### Setup signer
 
-1. Create a PIV signing key on your HW key if you don't have one. This uses the Yubikey tool:
+1. Create a PIV signing key on your HW key if you don't have one. [yubico-piv-tool](https://developers.yubico.com/yubico-piv-tool/) can do it (just copy-paste the public key and certificate when requested):
    ```
-   yubico-piv-tool -a generate -a verify-pin -a selfsign -a import-certificate -s 9c -k -A ECCP256 -S '/CN=piv_auth/OU=test/O=example.com/'
+   yubico-piv-tool -a generate -a verify-pin -a selfsign -a import-certificate -s 9c -k -A ECCP256 -S '/CN=piv_auth/OU=example/O=example.com/'
    ```
 1. Install a PKCS#11 module. Playground has been tested with the Yubico implementation,
    Debian users can install it with
