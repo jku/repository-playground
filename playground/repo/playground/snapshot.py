@@ -16,6 +16,6 @@ def snapshot(verbose: int) -> None:
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     repo = PlaygroundRepository("metadata")
-    snapshot_updated, _ = repo.snapshot()
+    snapshot_updated, _ = repo.do_snapshot()
     if snapshot_updated:
-        repo.timestamp()
+        repo.do_timestamp()

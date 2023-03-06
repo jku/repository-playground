@@ -3,6 +3,7 @@
 """Internal repository module for playground signer tool"""
 
 from collections import defaultdict
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum, unique
 import filecmp
@@ -80,10 +81,10 @@ class TargetStates(defaultdict[str, dict[str, TargetState]]):
             self[rolename][targetpath] = TargetState(target, State.ADDED)
             self.unknown_rolenames.add(rolename)
 
-    def update_target_states(self, rolename: str, md: Metadata):
+    def update_target_states(self, rolename: str, targets: Targets):
         """Mark target state as MODIFIED or REMOVED (or remove the state if target is unchanged)"""
         self.unknown_rolenames.discard(rolename)
-        for target in md.signed.targets.values():
+        for target in targets.targets.values():
             if target.path in self[rolename]:
                 if target == self[rolename][target.path].target:
                     del self[rolename][target.path]
@@ -182,12 +183,12 @@ class SignerRepository(Repository):
         target_states = TargetStates(target_dir)
 
         # Update target states based on all current targets metadata
-        md: Metadata[Targets] = self.open("targets")
-        target_states.update_target_states("targets", md)
-        if md.signed.delegations and md.signed.delegations.roles:
-            for rolename in md.signed.delegations.roles:
-                delegated_md: Metadata[Targets] = self.open(rolename)
-                target_states.update_target_states(rolename, delegated_md)
+        targets = self.targets()
+        target_states.update_target_states("targets", targets)
+        if targets.delegations and targets.delegations.roles:
+            for rolename in targets.delegations.roles:
+                delegated = self.targets(rolename)
+                target_states.update_target_states(rolename, delegated)
 
         if target_states.unknown_rolenames:
             raise ValueError(f"Targets have been added for unknown roles {target_states.unknown_rolenames}")
@@ -225,9 +226,9 @@ class SignerRepository(Repository):
     def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
         if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.open("root").signed
+            delegator: Root|Targets = self.root()
         else:
-            delegator = self.open("targets").signed
+            delegator = self.targets()
 
         r = delegator.get_delegated_role(role)
         keys = []
@@ -273,7 +274,7 @@ class SignerRepository(Repository):
             if role in ["snapshot", "timestamp"]:
                 raise ValueError(f"Cannot create {role}")
             if role == "root":
-                md = Metadata(Root())
+                md: Metadata = Metadata(Root())
             else:
                 md = Metadata(Targets())
             md.signed.unrecognized_fields["x-playground-expiry-period"] = 0
@@ -306,7 +307,7 @@ class SignerRepository(Repository):
 
     def get_online_config(self) -> OnlineConfig:
         """Read configuration for online delegation from metadata"""
-        root: Root = self.open("root").signed
+        root = self.root()
 
         timestamp_role = root.get_delegated_role("timestamp")
         snapshot_role = root.get_delegated_role("snapshot")
@@ -321,7 +322,7 @@ class SignerRepository(Repository):
         """Store online delegation configuration in metadata."""
         online_config.key.unrecognized_fields["x-playground-online-uri"] = online_config.uri
 
-        with self.edit("root") as root:
+        with self.edit_root() as root:
             # Add online keys
             root.add_key(online_config.key, "timestamp")
             root.add_key(online_config.key, "snapshot")
@@ -337,21 +338,23 @@ class SignerRepository(Repository):
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError("online roles not supported")
 
-        md = self.open(rolename)
         if rolename == "root":
-            delegator:Metadata[Root|Targets] = md
+            delegated: Root|Targets = self.root()
+            delegator: Root|Targets = delegated
         elif rolename == "targets":
-            delegator = self.open("root")
+            delegated = self.targets()
+            delegator = self.root()
         else:
-            delegator = self.open("targets")
+            delegated = self.targets(rolename)
+            delegator = self.targets()
 
         try:
-            role = delegator.signed.get_delegated_role(rolename)
+            role = delegator.get_delegated_role(rolename)
         except ValueError:
             return None
 
-        expiry = md.signed.unrecognized_fields["x-playground-expiry-period"]
-        signing = md.signed.unrecognized_fields["x-playground-signing-period"]
+        expiry = delegated.unrecognized_fields["x-playground-expiry-period"]
+        signing = delegated.unrecognized_fields["x-playground-signing-period"]
         threshold = role.threshold
         signers = []
         # Include current invitees on config
@@ -361,7 +364,7 @@ class SignerRepository(Repository):
         # Include current signers on config
         for keyid in role.keyids:
             try:
-                key = delegator.signed.get_key(keyid)
+                key = delegator.get_key(keyid)
                 signers.append(key.unrecognized_fields["x-playground-keyowner"])
             except ValueError:
                 pass
@@ -376,11 +379,11 @@ class SignerRepository(Repository):
             raise ValueError("online roles not supported")
 
         if rolename in ["root", "targets"]:
-            delegator_name = "root"
+            edit_cm = self.edit_root()
         else:
-            delegator_name = "targets"
+            edit_cm = self.edit_targets()
 
-        with self.edit(delegator_name) as delegator:
+        with edit_cm as delegator:
             # Handle existing signers
             changed = False
             try:

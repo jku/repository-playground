@@ -16,4 +16,4 @@ def timestamp(verbose: int) -> None:
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     repo = PlaygroundRepository("metadata")
-    repo.timestamp()
+    repo.do_timestamp()
