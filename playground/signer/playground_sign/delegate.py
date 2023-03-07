@@ -11,10 +11,8 @@ import os
 from securesystemslib.signer import GCPSigner
 
 from playground_sign._common import (
-    get_signing_key_input,
     get_secret_input,
     git,
-    read_settings,
 )
 from playground_sign._signer_repository import (
     OnlineConfig,
@@ -133,7 +131,13 @@ def _init_repository(repo: SignerRepository) -> bool:
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:
-        key = get_signing_key_input("Insert your HW key and press enter")
+        message = "Insert your HW key and press enter"
+        click.prompt(message, default=True, show_default=False)
+        try:
+            key = repo.read_signing_key()
+        except Exception as e:
+            raise click.ClickException(f"Failed to read HW key: {e}")
+
 
     repo.set_role_config("root", root_config, key)
     repo.set_role_config("targets", targets_config, key)
@@ -166,7 +170,12 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
     key = None
     if repo.user_name in new_config.signers:
-        key = get_signing_key_input("Insert your HW key and press enter")
+        message = "Insert your HW key and press enter"
+        click.prompt(message, default=True, show_default=False)
+        try:
+            key = repo.read_signing_key()
+        except Exception as e:
+            raise click.ClickException(f"Failed to read HW key: {e}")
 
     repo.set_role_config(role, new_config, key)
     return True
@@ -182,12 +191,6 @@ def delegate(verbose: int, role: str | None):
     toplevel = git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
-
-    # PyKCS11 (Yubikey support) needs the module path
-    # TODO: if config is not set, complain/ask the user?
-    if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
 
     # checkout the starting point of this signing event
     known_good_sha = git(["merge-base", "origin/main", "HEAD"])
@@ -196,7 +199,7 @@ def delegate(verbose: int, role: str | None):
         git(["clone", "--quiet", toplevel, known_good_dir])
         git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+        repo = SignerRepository(metadata_dir, prev_dir, settings_path, get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             changed = _init_repository(repo)
         elif role in ["timestamp", "snapshot"]:
@@ -210,6 +213,6 @@ def delegate(verbose: int, role: str | None):
         click.echo(
             "Done. Tool does not commit or push at the moment. Try\n"
             "  git add metadata\n"
-            f"  git commit -m 'Delegation change by {user_name}'\n"
+            f"  git commit -m 'Delegation change by {repo.user_name}'\n"
             f"  git push origin <signing_event>"
         )

@@ -8,10 +8,8 @@ import logging
 import os
 
 from playground_sign._common import (
-    get_signing_key_input,
     get_secret_input,
     git,
-    read_settings,
 )
 from playground_sign._signer_repository import (
     SignerRepository,
@@ -29,12 +27,6 @@ def sign(verbose: int):
     toplevel = git(["rev-parse", "--show-toplevel"])
     metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
-
-    # PyKCS11 (Yubikey support) needs the module path
-    # TODO: if config is not set, complain/ask the user?
-    if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
 
     # checkout the starting point of this signing event
     known_good_sha = git(["merge-base", "origin/main", "HEAD"])
@@ -43,13 +35,19 @@ def sign(verbose: int):
         git(["clone", "--quiet", toplevel, known_good_dir])
         git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+        repo = SignerRepository(metadata_dir, prev_dir, settings_path, get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
         elif repo.state == SignerState.INVITED:
             click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
-            key = get_signing_key_input("To accept the invitation, please insert your HW key and press enter")
+            message = "To accept the invitation, please insert your HW key and press enter"
+            click.prompt(message, default=True, show_default=False)
+            try:
+                key = repo.read_signing_key()
+            except Exception as e:
+                raise click.ClickException(f"Failed to read HW key: {e}")
+
             for rolename in repo.invites.copy():
                 # Modify the delegation
                 config = repo.get_role_config(rolename)
@@ -90,6 +88,6 @@ def sign(verbose: int):
         click.echo(
             "Done. Tool does not commit or push at the moment. Try\n"
             "  git add metadata\n"
-            f"  git commit -m 'Signed by {user_name}'\n"
+            f"  git commit -m 'Signed by {repo.user_name}'\n"
             "  git push origin <signing_event>"
         )

@@ -3,6 +3,7 @@
 """Internal repository module for playground signer tool"""
 
 from collections import defaultdict
+from configparser import ConfigParser
 from dataclasses import dataclass
 from enum import Enum, unique
 import filecmp
@@ -12,7 +13,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Callable
 from securesystemslib.exceptions import UnverifiedSignatureError
-from securesystemslib.signer import Signature, Signer
+from securesystemslib.signer import HSMSigner, Key, Signature, Signer
 
 from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Root, TargetFile, Targets
@@ -118,15 +119,44 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str
     return changed_roles
 
 
+def read_settings(config_path: str) -> tuple[str, str, dict[str, str]]:
+    config = ConfigParser(interpolation=None)
+    config.read(config_path)
+
+    # TODO: create config if missing, ask user for values
+
+    if not config:
+        raise RuntimeError(f"Settings file {config_path} not found")
+    try:
+        username = config["settings"]["user-name"]
+        pykcs11lib = config["settings"]["pykcs11lib"]
+    except KeyError as e:
+        raise RuntimeError(f"Failed to find required setting {e} in {config_path}")
+
+    if "signing-keys" in config:
+        keys = dict(config.items("signing-keys"))
+    else:
+        keys = {}
+
+    return username, pykcs11lib, keys
+
+
 class SignerRepository(Repository):
     """A repository implementation for the signer tool"""
 
-    def __init__(self, dir: str, prev_dir: str, user_name: str, secret_func: Callable[[str, str], str]):
-        self.user_name = user_name
+    def __init__(self, dir: str, prev_dir: str, settings_path, secret_func: Callable[[str, str], str]):
         self._dir = dir
         self._prev_dir = prev_dir
         self._get_secret = secret_func
         self._invites: dict[str, list[str]] = {}
+        self._settings_path = settings_path
+
+        self.user_name, pykcs11lib, self.signing_keys = read_settings(settings_path)
+
+        # PyKCS11 (Yubikey support) needs the module path
+        # TODO: if config is not set, complain/ask the user?
+        if "PYKCS11LIB" not in os.environ:
+            os.environ["PYKCS11LIB"] = pykcs11lib
 
         # read signing event state file (invites)
         state_file = os.path.join(self._dir, ".signing-event-state")
@@ -242,7 +272,11 @@ class SignerRepository(Repository):
         def secret_handler(secret: str) -> str:
             return self._get_secret(secret, role)
 
-        signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+        if not key.keyid in self.signing_keys:
+            raise ValueError(f"Missing signing key for {key.keyid}")
+
+        uri = self.signing_keys[key.keyid]
+        signer = Signer.from_priv_key_uri(uri, key, secret_handler)
         while True:
             try:
                 md.sign(signer, True)
@@ -476,3 +510,21 @@ class SignerRepository(Repository):
                 return
 
         assert(f"{rolename} signing key for {self.user_name} not found")
+
+    def read_signing_key(self) -> Key:
+        uri, key = HSMSigner.import_()
+
+        # Store the uri in config file
+        config = ConfigParser(interpolation=None)
+        config.read(self._settings_path)
+        if "signing-keys" not in config:
+            config.add_section("signing-keys")
+        config["signing-keys"][key.keyid] = uri
+
+        with open(self._settings_path, "wt") as f:
+            config.write(f)
+
+        # Update our signing key cache
+        self.signing_keys = dict(config.items("signing-keys"))
+
+        return key
