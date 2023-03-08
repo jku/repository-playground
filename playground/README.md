@@ -113,8 +113,14 @@ This updates the signing event.
 
 ### Repository template
 
-Status: partially implemented in the playground-template project.
-* Currently only contains signing event workflow
+Status: Implemented in the playground-template project. Workflows include
+* signing-event
+* snapshot
+* version-bumps
+
+These are likely to still be changed:
+* KMS authentication will possibly move inside the actions
+* there may be a configuration file like `.github/playground.ini` that the actions can use to lookup e.g. KMS configuration 
 
 See [https://github.com/jku/playground-template]
 
