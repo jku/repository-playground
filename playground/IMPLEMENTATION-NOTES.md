@@ -1,5 +1,9 @@
 # Notes for implementation
 
+This document describes a goal: current functionality is not quite the same yet:
+as an example, git pushes/pulls are not yet handled by the tool. Currently the 
+functionality is also split into playground-signer and playground-delegte. 
+
 ## Signer tool Commands
 
 Most actions should require no arguments or even commands, apart from the
