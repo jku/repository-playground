@@ -124,13 +124,15 @@ Status:
 * *actions/signing-event*: functionality is there but output is a work in progress, and
   various checks are still unimplemented 
 * *actions/snapshot*: Implemented
-* *online-version-bump*: Implemented
-* *offline-version-bump*: Implemented, but the signing event does not currently trigger
+* *actions/online-version-bump*: Implemented
+* *actions/offline-version-bump*: Implemented
 
 Various parts are still very experimental
 * loads of content safety checks are missing
 * output of the signing event is a work in progress
 * failures in the actions are not visible to user
+* testing is still completely manual
+* Several actions are hacks more than mature implementations 
 
 See [repo/](repo/), See [actions/](actions/)
 
@@ -138,7 +140,8 @@ See [repo/](repo/), See [actions/](actions/)
 
 Status:
 * playground-delegate mostly implented
-* playground-sign mostly implemented
+* playground-sign mostly implemented, althought output is a work in progress
+* Neither tool integrates git push/pull yet: at least for playground-sign integration would make a lot of sense
 
 See [signer/](signer/)
 
