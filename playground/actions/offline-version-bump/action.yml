@@ -14,9 +14,11 @@ runs:
       shell: bash
 
     - name: Bump offline role versions
+      id: offline-bump
       run: |
         git config user.name "Playground version bump"
         git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+        events=""
 
         for filename in metadata/*.json; do
           fname=$(basename $filename)
@@ -44,8 +46,28 @@ runs:
           git show
           git push origin HEAD:$signing_event
 
+          events="${events} $signing_event"
+
           # reset to original commit (GITHUB_SHA)
           git reset --hard HEAD^
-
         done
+
+        echo "events=${events}" >> $GITHUB_OUTPUT
       shell: bash
+
+    - name: Dispatch signing events
+      if: steps.offline-bump.outputs.events != ''
+      env:
+        EVENTS: ${{ steps.offline-bump.outputs.events }}
+      uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+      with:
+        script: |
+          console.log('Dispatching events: ', process.env.EVENTS)
+          process.env.EVENTS.trim().split(' ').forEach(event => {
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'signing-event.yml',
+              ref: event,
+            })
+          })
