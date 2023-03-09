@@ -129,6 +129,10 @@ class PlaygroundRepository(Repository):
                 # offline signer, add empty sig
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
+        if rolename in ["timestamp", "snapshot"]:
+            # repository should never write unsigned online roles
+            root_md.verify_delegate(rolename, md)
+
         filename = self._get_filename(rolename)
         data = md.to_bytes(JSONSerializer())
         with open(filename, "wb") as f:

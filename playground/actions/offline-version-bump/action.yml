@@ -16,42 +16,7 @@ runs:
     - name: Bump offline role versions
       id: offline-bump
       run: |
-        git config user.name "Playground version bump"
-        git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-        events=""
-
-        for filename in metadata/*.json; do
-          fname=$(basename $filename)
-          rolename="${fname%.json}"
-          if [ "$rolename" = "timestamp" -o "$rolename" = "snapshot" ]; then
-            continue
-          fi
-
-          version=$(playground-bump-expiring "${rolename}")
-          if git diff --exit-code --quiet; then
-            echo $rolename is not expiring
-            continue
-          fi
-
-          # If signing event (branch) exists, don't start another one
-          signing_event="sign/${rolename}-v${version}"
-          if git ls-remote --exit-code origin ${signing_event}; then
-            echo "Signing event ${signing_event} already exists"
-            git reset --hard HEAD
-            continue
-          fi
-
-          # Start a signing event
-          git commit -a -m "Periodic version bump for ${rolename}: version ${version}"
-          git show
-          git push origin HEAD:$signing_event
-
-          events="${events} $signing_event"
-
-          # reset to original commit (GITHUB_SHA)
-          git reset --hard HEAD^
-        done
-
+        events=$(playground-bump-offline --push)
         echo "events=${events}" >> $GITHUB_OUTPUT
       shell: bash
 
