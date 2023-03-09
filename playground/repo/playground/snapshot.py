@@ -50,6 +50,6 @@ def snapshot(verbose: int, push: bool, publish_dir: str|None) -> None:
 
     if publish_dir:
         repo.publish(publish_dir)
-        click.echo(f"Snapshot generated and published in {publish_dir}")
+        click.echo(f"New repository snapshot generated and published in {publish_dir}")
     else:
-        click.echo(f"Snapshot generated")
+        click.echo(f"New repository snapshot generated")

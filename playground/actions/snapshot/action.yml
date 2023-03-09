@@ -3,7 +3,7 @@ description: 'Produce new snapshot & timestamp versions if their content needs c
 
 outputs:
   generated:
-    description: "'true' if a new snapshot & timestamp were generated"
+    description: "'true' if a new repository version was uploaded"
     value: ${{ steps.snapshot.outputs.generated }}
 
 runs:

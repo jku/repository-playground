@@ -4,6 +4,7 @@
 
 from glob import glob
 import subprocess
+import sys
 import click
 import logging
 
@@ -22,11 +23,15 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
-def bump_online(verbose: int, push: bool) -> None:
+@click.argument("publish-dir", required=False)
+def bump_online(verbose: int, push: bool, publish_dir: str|None) -> None:
     """Commit new metadata versions for online roles if needed
 
     New versions will be signed.
     If --push, then current branch is also pushed to origin
+    If publish-dir is provided, a repository snapshot is generated into that directory
+
+    returns 1 if new metadata was not generated
     """
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
@@ -46,12 +51,19 @@ def bump_online(verbose: int, push: bool) -> None:
 
     if not timestamp_version and not snapshot_version:
         click.echo("No online version bumps needed")
-        return
+        sys.exit(1)
 
     click.echo(msg)
     _git(["commit", "-m", msg, "--", "metadata/timestamp.json", "metadata/snapshot.json"])
     if push:
         _git(["push", "origin", "HEAD"])
+
+    if publish_dir:
+        repo.publish(publish_dir)
+        click.echo(f"New repository snapshot generated and published in {publish_dir}")
+    else:
+        click.echo(f"New repository snapshot generated")
+
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
