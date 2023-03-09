@@ -14,102 +14,69 @@ runs:
     - run: pip install $GITHUB_ACTION_PATH/../../repo/
       shell: bash
 
-    - run: |
-        FORK=$(git merge-base origin/main $GITHUB_SHA)
-        echo "Forking point of this signing event is $FORK"
-        echo "FORK=$FORK" >> $GITHUB_ENV
+    - id: status
+      run: |
+        if playground-status >> status-output;  then
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+        fi
+        cat status-output
       shell: bash
 
-    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-      with:
-        ref: ${{ env.FORK }}
-        path: "known-good"
-
-    - id: find-issue
+    - id: file-issue
       uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+      env:
+        STATUS: ${{ steps.status.outputs.status }}
       with:
         script: |
           const fs = require('fs')
+          message = fs.readFileSync('./status-output').toString()
 
           issue = 0
-          if (process.env.FORK == process.env.GITHUB_SHA) {
-            console.log("Signing event branch has no commits")
-          } else {
-            const repo = context.repo.owner + "/" + context.repo.repo
-            const issues = await github.rest.search.issuesAndPullRequests({
-              q: "label:" + process.env.GITHUB_REF_NAME + "+state:open+type:issue+repo:" + repo,
-            })
-            if (issues.data.total_count > 1) {
-              core.setFailed("Found more than one issue with same label")
-            } else if (issues.data.total_count == 0) {
-              const response = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: "Signing event: " + process.env.GITHUB_REF_NAME,
-                body: "TODO: document signing event here",
-                labels: [process.env.GITHUB_REF_NAME],
-              })
-              issue = response.data.number
-              console.log("Created issue #" + issue)
-            } else {
-              issue = issues.data.items[0].number
-              console.log("Found existing issue #" + issue)
-            }
-          }
-
-          // can't use output as next step input in composite action, so use the environment
-          fs.appendFileSync(process.env.GITHUB_ENV, "ISSUE=" + issue + "\n");
-
-    - run: |
-        echo "### Current signing event state" >> status-output
-        if test -f "metadata/root.json"; then
-          if playground-status known-good/ $GITHUB_REF_NAME >> status-output;  then
-            STATUS="signed"
-          else
-            STATUS="unsigned"
-          fi
-        else
-          echo "Repository does not exist yet" >> status-output
-          STATUS="uninitialized"
-        fi
-
-        cat status-output
-        echo "STATUS=$STATUS"
-        echo "STATUS=$STATUS" >> $GITHUB_ENV
-      shell: bash
-
-    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
-      with:
-        script: |
-          if (process.env.ISSUE == 0) {
-            console.log("Skipping issue update as issue was not set")
-          } else {
-            const fs = require('fs')
-            body = fs.readFileSync('./status-output').toString()
-            if (process.env.STATUS == 'signed') {
-              const repo = context.repo.owner + "/" + context.repo.repo
-              const issues = await github.rest.search.issuesAndPullRequests({
-                q: "head:" + process.env.GITHUB_REF_NAME + "+state:open+type:pr+repo:" + repo,
-              })
-              if (issues.data.total_count != 0) {
-                console.log("Skipping PR creation as one exists already")
-              } else {
-                const pull = await github.rest.pulls.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  head: process.env.GITHUB_REF_NAME,
-                  base: 'main',
-                  title: process.env.GITHUB_REF_NAME,
-                  body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + '.\nCloses #' + process.env.ISSUE,
-                })
-                body += "### Pull request filed\n\n"
-                body += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
-              }
-            }
-            github.rest.issues.createComment({
-              issue_number: process.env.ISSUE,
+          const repo = context.repo.owner + "/" + context.repo.repo
+          const issues = await github.rest.search.issuesAndPullRequests({
+            q: "label:" + process.env.GITHUB_REF_NAME + "+state:open+type:issue+repo:" + repo,
+          })
+          if (issues.data.total_count > 1) {
+            core.setFailed("Found more than one issue with same label")
+          } else if (issues.data.total_count == 0) {
+            const response = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body,
+              title: "Signing event: " + process.env.GITHUB_REF_NAME,
+              body: "TODO: document signing event here",
+              labels: [process.env.GITHUB_REF_NAME],
             })
+            issue = response.data.number
+            console.log("Created issue #" + issue)
+          } else {
+            issue = issues.data.items[0].number
+            console.log("Found existing issue #" + issue)
           }
+
+          if (process.env.STATUS == 'success') {
+            const prs = await github.rest.search.issuesAndPullRequests({
+              q: "head:" + process.env.GITHUB_REF_NAME + "+state:open+type:pr+repo:" + repo,
+            })
+            if (prs.data.total_count != 0) {
+              console.log("Skipping PR creation as one exists already")
+            } else {
+              const pull = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: process.env.GITHUB_REF_NAME,
+                base: 'main',
+                title: process.env.GITHUB_REF_NAME,
+                body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + '.\nCloses #' + process.env.ISSUE,
+              })
+              message += "### Pull request filed\n\n"
+              message += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
+            }
+          }
+          github.rest.issues.createComment({
+            issue_number: issue,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: message,
+          })
