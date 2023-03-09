@@ -4,7 +4,7 @@ This is a place to develop workflows and Best Practices for community artifact r
 
 Current active milestone for the project is to implement a _TUF repository on a CI system_ but this goal will evolve over time.
 
-If you'd like to reach out, you can file an issue in this project or come and say hi on [python-tuf slack](https://cloud-native.slack.com/archives/C01GT17AC5D). Any mail sent to jku at goto.fi will also be read, sooner or later.
+If you'd like to reach out, you can file an issue in this project or come and say hi on [slack](https://cloud-native.slack.com/archives/C04SHK2DPK9). Any mail sent to jkukkonen at google.com will also be read, sooner or later.
 
 ## Why build this?
 
