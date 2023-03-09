@@ -10,7 +10,7 @@ Supported features include:
 The optimal use case (at least to begin with) is TUF repositories with a low
 to moderate frequency of change, both for target target files and keys.
 
-This is a Work-In-Progress: any code should be seen as experimental for now.
+This is a Work-In-Progress: any code should be seen as experimental for now. See [example](https://github.com/jku/test-repo-for-playground/) for an instance running repository-playground.
 
 ## Documentation
 
