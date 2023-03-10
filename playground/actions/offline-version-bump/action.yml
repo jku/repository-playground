@@ -15,18 +15,12 @@ runs:
     - run: pip install $GITHUB_ACTION_PATH/../../repo/
       shell: bash
 
-    - run: |
-        git ls-remote
-        git show-ref
-      shell: bash
-
     - name: Bump offline role versions
       id: offline-bump
       run: |
         events=$(playground-bump-offline --push)
-        echo "EVENTS"
-        echo "|${events}|"
-        echo events="" >> $GITHUB_OUTPUT
+        echo events="$events"
+        echo events="$events" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Dispatch signing events
