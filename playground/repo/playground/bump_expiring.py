@@ -79,9 +79,11 @@ def bump_offline(verbose: int, push: bool) -> None:
 
         msg = f"Periodic version bump: {rolename} v{version}"
         event = f"sign/{rolename}-v{version}"
+        ref = f"refs/remotes/origin/{event}" if push else f"refs/heads/{event}"
         _git(["commit", "-m", msg, "--", f"metadata/{rolename}.json"])
         try:
-            _git(["show-ref", "--quiet", "--verify", f"refs/heads/{event}"])
+            print(f"DEBUG {_git(['show-ref']).stdout}",flush=True)
+            _git(["show-ref", "--quiet", "--verify", ref])
             logging.debug("Signing event branch %s already exists", event)
         except subprocess.CalledProcessError:
             events.append(event)
