@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 
 def _git(cmd: list[str]) -> subprocess.CompletedProcess:
     cmd = ["git", "-c", "user.name=repository-playground", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com"] + cmd
-    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    logger.debug("%s:\n%s", cmd, proc.stdout)
+    try:
+        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        logger.debug("%s:\n%s", cmd, proc.stdout)
+    except subprocess.CalledProcessError as e:
+        logger.error(proc.stderr)
+        raise e
     return proc
 
 
@@ -82,6 +86,7 @@ def bump_offline(verbose: int, push: bool) -> None:
         ref = f"refs/remotes/origin/{event}" if push else f"refs/heads/{event}"
         _git(["commit", "-m", msg, "--", f"metadata/{rolename}.json"])
         try:
+            click.echo("DEBUG", _git(["show-ref"]).stdout)
             _git(["show-ref", "--quiet", "--verify", ref])
             logging.debug("Signing event branch %s already exists", event)
         except subprocess.CalledProcessError:
