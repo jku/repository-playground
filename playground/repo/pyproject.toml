@@ -19,7 +19,7 @@ dependencies = [
 requires-python = ">=3.10"
 
 [project.scripts]
-playground-status = "playground:status_cli"
+playground-status = "playground:status"
 playground-snapshot = "playground:snapshot"
 playground-bump-online = "playground:bump_online"
 playground-bump-offline = "playground:bump_offline"
