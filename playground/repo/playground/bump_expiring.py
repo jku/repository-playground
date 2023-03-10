@@ -14,12 +14,8 @@ logger = logging.getLogger(__name__)
 
 def _git(cmd: list[str]) -> subprocess.CompletedProcess:
     cmd = ["git", "-c", "user.name=repository-playground", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com"] + cmd
-    try:
-        proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        logger.debug("%s:\n%s", cmd, proc.stdout)
-    except subprocess.CalledProcessError as e:
-        logger.error(proc.stderr)
-        raise e
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    logger.debug("%s:\n%s", cmd, proc.stdout)
     return proc
 
 
