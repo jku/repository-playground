@@ -24,7 +24,9 @@ runs:
       id: offline-bump
       run: |
         events=$(playground-bump-offline --push)
-        echo "events=${events}" >> $GITHUB_OUTPUT
+        echo "EVENTS"
+        echo "|${events}|"
+        echo events="" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Dispatch signing events
