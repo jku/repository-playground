@@ -1,6 +1,11 @@
 name: 'Online version bump'
 description: 'Produce new versions of online metadata that is about to expire'
 
+outputs:
+  generated:
+    description: "'true' if a new repository version was uploaded"
+    value: ${{ steps.online-bump.outputs.generated }}
+
 runs:
   using: "composite"
   steps:
@@ -16,7 +21,20 @@ runs:
       shell: bash
 
     - name: Bump online role versions
+      id: online-bump
       run: |
+        mkdir publish
         cd repository
-        playground-bump-online --push
+        if playground-bump-online --push ../publish; then
+          ls -l "../publish"
+          echo "generated=true" >> $GITHUB_OUTPUT
+        else
+          echo "generated=false" >> $GITHUB_OUTPUT
+        fi
       shell: bash
+
+    - name: Upload repository artifact for GitHub Pages
+      if: steps.online-bump.outputs.generated == 'true'
+      uses: actions/upload-pages-artifact@253fd476ed429e83b7aae64a92a75b4ceb1a17cf
+      with:
+        path: publish/

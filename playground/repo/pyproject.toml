@@ -19,7 +19,6 @@ dependencies = [
 requires-python = ">=3.10"
 
 [project.scripts]
-playground-publish = "playground:publish"
 playground-status = "playground:status_cli"
 playground-snapshot = "playground:snapshot"
 playground-bump-online = "playground:bump_online"
