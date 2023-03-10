@@ -5,6 +5,8 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+      with:
+        fetch-depth: 0
 
     - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435
       with:
@@ -17,7 +19,8 @@ runs:
       id: offline-bump
       run: |
         events=$(playground-bump-offline --push)
-        echo "events=${events}" >> $GITHUB_OUTPUT
+        echo events="$events"
+        echo events="$events" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Dispatch signing events
