@@ -44,7 +44,8 @@ def snapshot(verbose: int, push: bool, publish_dir: str|None) -> None:
     repo.timestamp()
 
     msg = "Snapshot & timestamp"
-    _git(["commit", "-m", msg, "--", "metadata/timestamp.json", "metadata/snapshot.json"])
+    _git(["add", "metadata/timestamp.json", "metadata/snapshot.json"])
+    _git(["commit", "-m", msg])
     if push:
         _git(["push", "origin", "HEAD"])
 
