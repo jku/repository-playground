@@ -6,11 +6,15 @@ import logging
 import os
 import shutil
 from securesystemslib.exceptions import UnverifiedSignatureError
-from securesystemslib.signer import Signature, Signer
+from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME
+from sigstore.oidc import detect_credential
 
 from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
 from tuf.repository import AbortEdit, Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
+
+# sigstore is not a supported key by default
+KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 
 # TODO Add a metadata cache so we don't constantly open files
 # TODO; Signing status probably should include an error message when valid=False
@@ -123,7 +127,11 @@ class PlaygroundRepository(Repository):
         for key in self._get_keys(rolename):
             if rolename in ["timestamp", "snapshot"]:
                 uri = key.unrecognized_fields["x-playground-online-uri"]
-                signer = Signer.from_priv_key_uri(uri, key)
+                # WORKAROUND while sigstoresigner is not finished
+                if uri == "sigstore:":
+                    signer = SigstoreSigner(detect_credential(), key)
+                else:
+                    signer = Signer.from_priv_key_uri(uri, key)
                 md.sign(signer, True)
             else:
                 # offline signer, add empty sig

@@ -5,10 +5,11 @@
 from copy import deepcopy
 import copy
 from tempfile import TemporaryDirectory
+from urllib import parse
 import click
 import logging
 import os
-from securesystemslib.signer import GCPSigner
+from securesystemslib.signer import GCPSigner, SigstoreKey
 
 from playground_sign._common import (
     get_signing_key_input,
@@ -86,7 +87,7 @@ def _get_online_input(
     click.echo(f"\nConfiguring online roles")
     while True:
         choice = click.prompt(
-            f" 1. Configure KMS key: {config.uri}\n"
+            f" 1. Configure online key: {config.uri}\n"
             f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
             f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days\n"
             "Please choose an option or press enter to continue",
@@ -96,18 +97,29 @@ def _get_online_input(
         )
         if choice == 0:
             if not config.uri:
-                click.secho("Error: Missing KMS key", fg="red")
+                click.secho("Error: Missing online key", fg="red")
             else:
                 break
         if choice == 1:
             # TODO use value_proc argument to validate the input
-            gcp_key_id = click.prompt(
-                "Please enter the Google Cloud KMS key id to use for online signing"
+            key_id = click.prompt(
+                "Press enter to use Sigstore, or enter a Google Cloud KMS key id",
+                default=""
             )
-            try:
-                config.uri, config.key = GCPSigner.import_(gcp_key_id)
-            except Exception as e:
-                raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+            if key_id == "":
+                # WORKAROUND for sigstore not having import yet
+                issuer = "https://token.actions.githubusercontent.com"
+                url = parse.urlparse(git(["config", "--get", "remote.origin.url"]))
+                repo = url.path[1:-len(".git")]
+                # This is for snapshot only -- will not work for version-bumps
+                identity = f"https://github.com/{repo}/.github/workflows/snapshot.yml@refs/heads/main"
+                config.uri = "sigstore:"
+                config.key = SigstoreKey("abcd", "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": identity})
+            else:
+                try:
+                    config.uri, config.key = GCPSigner.import_(key_id)
+                except Exception as e:
+                    raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
         if choice == 2:
             config.timestamp_expiry = click.prompt(
                 f"Please enter timestamp expiry in days",
