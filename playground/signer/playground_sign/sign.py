@@ -11,7 +11,7 @@ from playground_sign._common import (
     get_signing_key_input,
     get_secret_input,
     git,
-    read_settings,
+    SignerConfig,
 )
 from playground_sign._signer_repository import (
     SignerRepository,
@@ -22,28 +22,37 @@ logger = logging.getLogger(__name__)
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
-def sign(verbose: int):
+@click.option("--push/--no-push", default=True)
+@click.argument("signing-event")
+def sign(verbose: int, push: bool, signing_event: str):
     """Signing tool for Repository Playground signing events."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = git(["rev-parse", "--show-toplevel"])
-    metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
+    config = SignerConfig(settings_path)
+
+    # first, checkout current signing event branch
+    git(["fetch", config.pull_remote])
+    git(["checkout", f"{config.pull_remote}/{signing_event}"])
+    # TODO: wrap everything after checkout inside a try-finally so that
+    # we can undo checkout in "finally" even if something goes wrong.
+
+    metadata_dir = os.path.join(toplevel, "metadata")
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
     if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
+        os.environ["PYKCS11LIB"] = config.pykcs11lib
 
     # checkout the starting point of this signing event
-    known_good_sha = git(["merge-base", "origin/main", "HEAD"])
+    known_good_sha = git(["merge-base", f"{config.pull_remote}/main", "HEAD"])
     with TemporaryDirectory() as known_good_dir:
         prev_dir = os.path.join(known_good_dir, "metadata")
         git(["clone", "--quiet", toplevel, known_good_dir])
         git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+        repo = SignerRepository(metadata_dir, prev_dir, config.user_name, get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
@@ -87,9 +96,17 @@ def sign(verbose: int):
             raise NotImplementedError
 
     if changed:
-        click.echo(
-            "Done. Tool does not commit or push at the moment. Try\n"
-            "  git add metadata\n"
-            f"  git commit -m 'Signed by {user_name}'\n"
-            "  git push origin <signing_event>"
-        )
+        git(["commit", "-m", f"Signed by {config.user_name}", "--", "metadata"])
+        if push:
+            msg = f"Press enter to push signature(s) to {config.push_remote}/{signing_event}"
+            click.prompt(msg, default=True, show_default=False)
+            git(["push", config.push_remote, f"HEAD:refs/heads/{signing_event}"])
+            click.echo(f"Pushed branch {signing_event} to {config.push_remote}")
+        else:
+            # TODO: maybe deal with existing branch?
+            click.echo(f"Creating local branch {signing_event}")
+            git(["branch", signing_event])
+    else:
+        click.echo("Nothing to do.")
+
+    git(["checkout", "-"])

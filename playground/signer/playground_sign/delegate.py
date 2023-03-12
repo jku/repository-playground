@@ -4,6 +4,7 @@
 
 from copy import deepcopy
 import copy
+import subprocess
 from tempfile import TemporaryDirectory
 from urllib import parse
 import click
@@ -15,7 +16,7 @@ from playground_sign._common import (
     get_signing_key_input,
     get_secret_input,
     git,
-    read_settings,
+    SignerConfig,
 )
 from playground_sign._signer_repository import (
     OnlineConfig,
@@ -202,20 +203,33 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
+@click.option("--push/--no-push", default=True)
+@click.argument("signing-event")
 @click.argument("role", required=False)
-def delegate(verbose: int, role: str | None):
+def delegate(verbose: int, push: bool, signing_event: str, role: str | None):
     """Tool for modifying Repository Playground delegations."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = git(["rev-parse", "--show-toplevel"])
-    metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
+    config = SignerConfig(settings_path)
+
+    # first, make sure we're up-to-date
+    git(["fetch", config.pull_remote])
+    try:
+        git(["checkout", f"{config.pull_remote}/{signing_event}"])
+    except subprocess.CalledProcessError:
+        # branch not existing is fine: we start from main then
+        git(["checkout", f"{config.pull_remote}/main"])
+    # TODO: wrap everything after checkout inside a try-finally so that
+    # we can undo checkout in "finally" even if something goes wrong.
+
+    metadata_dir = os.path.join(toplevel, "metadata")
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
     if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
+        os.environ["PYKCS11LIB"] = config.pykcs11lib
 
     # checkout the starting point of this signing event
     known_good_sha = git(["merge-base", "origin/main", "HEAD"])
@@ -224,7 +238,7 @@ def delegate(verbose: int, role: str | None):
         git(["clone", "--quiet", toplevel, known_good_dir])
         git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
 
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+        repo = SignerRepository(metadata_dir, prev_dir, config.user_name, get_secret_input)
         if repo.state == SignerState.UNINITIALIZED:
             changed = _init_repository(repo)
         elif role in ["timestamp", "snapshot"]:
@@ -235,9 +249,17 @@ def delegate(verbose: int, role: str | None):
             raise click.UsageError("ROLE is required")
 
     if changed:
-        click.echo(
-            "Done. Tool does not commit or push at the moment. Try\n"
-            "  git add metadata\n"
-            f"  git commit -m 'Delegation change by {user_name}'\n"
-            f"  git push origin <signing_event>"
-        )
+        git(["add", f"metadata/{role}.json"])
+        git(["commit", "-m", f"'{role}' role/delegation change", "--", "metadata"])
+        if push:
+            msg = f"Press enter to push changes to {config.push_remote}/{signing_event}"
+            git(["push", config.push_remote, f"HEAD:refs/heads/{signing_event}"])
+            click.echo(f"Pushed branch {signing_event} to {config.push_remote}")
+        else:
+            # TODO: deal with existing branch?
+            click.echo(f"Creating local branch {signing_event}")
+            git(["branch", signing_event])
+    else:
+        click.echo("Nothing to do")
+
+    git(["checkout", "-"])

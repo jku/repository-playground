@@ -8,6 +8,22 @@ import click
 
 from securesystemslib.signer import HSMSigner, Key
 
+class SignerConfig:
+    def __init__(self, path: str):
+        config = ConfigParser()
+        config.read(path)
+
+        # TODO: create config if missing, ask/confirm values from user
+        if not config:
+            raise click.ClickException(f"Settings file {path} not found")
+        try:
+            self.user_name = config["settings"]["user-name"]
+            self.pykcs11lib = config["settings"]["pykcs11lib"]
+            self.push_remote = config["settings"]["pull-remote"]
+            self.pull_remote = config["settings"]["push-remote"]
+        except KeyError as e:
+            raise click.ClickException(f"Failed to find required setting {e} in {path}")
+
 def get_signing_key_input(message: str) -> Key:
     # TODO use value_proc argument to validate the input
     click.prompt(message, default=True, show_default=False)
@@ -20,19 +36,8 @@ def get_signing_key_input(message: str) -> Key:
 
 
 def get_secret_input(secret: str, role: str) -> str:
-    return click.prompt(f"Enter {secret} to sign {role}", hide_input=True)
-
-
-def read_settings(config_path: str) -> tuple[str, str]:
-    config = ConfigParser()
-    config.read(config_path)
-    # TODO: create config if missing, ask user for values
-    if not config:
-        raise click.ClickException(f"Settings file {config_path} not found")
-    try:
-        return config["settings"]["user-name"], config["settings"]["pykcs11lib"]
-    except KeyError as e:
-        raise click.ClickException(f"Failed to find required setting {e} in {config_path}")
+    msg = f"Enter {secret} to sign {role}"
+    return click.prompt(msg, hide_input=True, show_default=False)
 
 
 def git(cmd: list[str]) -> str:
