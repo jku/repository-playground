@@ -215,12 +215,14 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
     with signing_event(event_name, config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
             changed = _init_repository(repo)
-        elif role in ["timestamp", "snapshot"]:
-            changed = _update_online_roles(repo)
-        elif role:
-            changed =  _update_offline_role(repo, role)
         else:
-            raise click.UsageError("ROLE is required")
+            if role is None:
+                role = click.prompt("Enter name of role to modify")
+
+            if role in ["timestamp", "snapshot"]:
+                changed = _update_online_roles(repo)
+            else:
+                changed =  _update_offline_role(repo, role)
 
         if changed:
             git(["add", f"metadata/{role}.json"])
