@@ -56,24 +56,14 @@ runs:
           }
 
           if (process.env.STATUS == 'success') {
-            const prs = await github.rest.search.issuesAndPullRequests({
-              q: "head:" + process.env.GITHUB_REF_NAME + "+state:open+type:pr+repo:" + repo,
-            })
-            if (prs.data.total_count != 0) {
-              console.log("Skipping PR creation as one exists already")
-            } else {
-              const pull = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head: process.env.GITHUB_REF_NAME,
-                base: 'main',
-                title: process.env.GITHUB_REF_NAME,
-                body: 'This is a Pull request for signing event ' + process.env.GITHUB_REF_NAME + '.\nCloses #' + process.env.ISSUE,
-              })
-              message += "### Pull request filed\n\n"
-              message += "Threshold of signatures has been reached. Pull request #" + pull.data.number + " has been filed."
-            }
+            pr_url = new URL("https://github.com/" + repo + "/compare/main..." + process.env.GITHUB_REF_NAME)
+            pr_url.searchParams.set("expand", "1")
+            pr_url.searchParams.set("title", "Signing event " + process.env.GITHUB_REF_NAME)
+            pr_url.searchParams.set("body", "Signing event " + process.env.GITHUB_REF_NAME + " is successful and ready to merge.\n\nCloses #" + issue + ".")
+            message += "### Signing event is successful\n\n"
+            message += "Threshold of signatures has been reached. A [pull request](" + pr_url + ") can be opened."
           }
+
           github.rest.issues.createComment({
             issue_number: issue,
             owner: context.repo.owner,
