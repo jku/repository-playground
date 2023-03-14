@@ -5,10 +5,11 @@
 from copy import deepcopy
 import copy
 from tempfile import TemporaryDirectory
+from urllib import parse
 import click
 import logging
 import os
-from securesystemslib.signer import GCPSigner
+from securesystemslib.signer import GCPSigner, SigstoreKey, KEY_FOR_TYPE_AND_SCHEME
 
 from playground_sign._common import (
     get_signing_key_input,
@@ -22,6 +23,11 @@ from playground_sign._signer_repository import (
     SignerRepository,
     SignerState,
 )
+
+
+# sigstore is not a supported key by default
+KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +85,23 @@ def _get_offline_input(
     return config
 
 
+def _sigstore_import() -> list[tuple[str, SigstoreKey]]:
+    # WORKAROUND: build sigstore key and uri here since there is no import yet
+    # TODO pull-remote should come from config once that exists
+    uri = "sigstore:"
+    pull_remote = "origin"
+    issuer = "https://token.actions.githubusercontent.com"
+    url = parse.urlparse(git(["config", "--get", f"remote.{pull_remote}.url"]))
+    repo = url.path[1:-len(".git")]
+
+    # Create separate keys for the two workflows that need keys
+    keys = []
+    for workflow, keyid in [("snapshot.yml", "abcd"), ("version-bumps.yml", "efgh")]:
+        id = f"https://github.com/{repo}/.github/workflows/{workflow}@refs/heads/main"
+        key = SigstoreKey(keyid, "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": id})
+        keys.append((uri, key))
+    return keys
+
 def _get_online_input(
     config: OnlineConfig
 ) -> OnlineConfig:
@@ -86,7 +109,7 @@ def _get_online_input(
     click.echo(f"\nConfiguring online roles")
     while True:
         choice = click.prompt(
-            f" 1. Configure KMS key: {config.uri}\n"
+            f" 1. Configure online key: {config.keys[0][0]}\n"
             f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
             f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days\n"
             "Please choose an option or press enter to continue",
@@ -95,19 +118,21 @@ def _get_online_input(
             show_default=False,
         )
         if choice == 0:
-            if not config.uri:
-                click.secho("Error: Missing KMS key", fg="red")
-            else:
-                break
+            break
         if choice == 1:
             # TODO use value_proc argument to validate the input
-            gcp_key_id = click.prompt(
-                "Please enter the Google Cloud KMS key id to use for online signing"
+            key_id = click.prompt(
+                "Press enter to use Sigstore, or enter a Google Cloud KMS key id",
+                default=""
             )
-            try:
-                config.uri, config.key = GCPSigner.import_(gcp_key_id)
-            except Exception as e:
-                raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+            if key_id == "":
+                config.keys = _sigstore_import()
+            else:
+                try:
+                    uri, key = GCPSigner.import_(key_id)
+                    config.keys = [(uri, key)]
+                except Exception as e:
+                    raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
         if choice == 2:
             config.timestamp_expiry = click.prompt(
                 f"Please enter timestamp expiry in days",
@@ -129,7 +154,10 @@ def _init_repository(repo: SignerRepository) -> bool:
 
     root_config = _get_offline_input("root", OfflineConfig([repo.user_name], 1, 365, 60))
     targets_config = _get_offline_input("targets", deepcopy(root_config))
-    online_config = _get_online_input(OnlineConfig(None, None, 1, root_config.expiry_period))
+
+    # As default we offer sigstore online key(s)
+    keys = _sigstore_import()
+    online_config = _get_online_input(OnlineConfig(keys, 1, root_config.expiry_period))
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:

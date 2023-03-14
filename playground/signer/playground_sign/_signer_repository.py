@@ -44,8 +44,8 @@ class TargetState:
 
 @dataclass
 class OnlineConfig:
-    key: Key | None
-    uri: str | None
+    # All keys are use as singning keys for both snapshot and timestamp
+    keys: list[tuple[str, Key]]
     timestamp_expiry: int
     snapshot_expiry: int
 
@@ -312,25 +312,36 @@ class SignerRepository(Repository):
         snapshot_role = root.get_delegated_role("snapshot")
         timestamp_expiry = timestamp_role.unrecognized_fields["x-playground-expiry-period"]
         snapshot_expiry = snapshot_role.unrecognized_fields["x-playground-expiry-period"]
-        key = root.get_key(timestamp_role.keyids[0])
-        uri = key.unrecognized_fields["x-playground-online-uri"]
+        keys = []
+        for keyid in timestamp_role.keyids:
+            key = root.get_key(keyid)
+            uri = key.unrecognized_fields["x-playground-online-uri"]
+            keys.append((uri, key))
 
-        return OnlineConfig(key, uri, timestamp_expiry, snapshot_expiry)
+        return OnlineConfig(keys, timestamp_expiry, snapshot_expiry)
 
     def set_online_config(self, online_config: OnlineConfig):
         """Store online delegation configuration in metadata."""
-        online_config.key.unrecognized_fields["x-playground-online-uri"] = online_config.uri
 
         with self.edit("root") as root:
-            # Add online keys
-            root.add_key(online_config.key, "timestamp")
-            root.add_key(online_config.key, "snapshot")
+            timestamp = root.get_delegated_role("timestamp")
+            snapshot = root.get_delegated_role("snapshot")
+
+            # Remove current keys
+            for keyid in timestamp.keyids.copy():
+                root.revoke_key(keyid, "timestamp")
+            for keyid in snapshot.keyids.copy():
+                root.revoke_key(keyid, "snapshot")
+
+            # Add new keys
+            for uri, key in online_config.keys:
+                key.unrecognized_fields["x-playground-online-uri"] = uri
+                root.add_key(key, "timestamp")
+                root.add_key(key, "snapshot")
 
             # set online role periods
-            role = root.get_delegated_role("timestamp")
-            role.unrecognized_fields["x-playground-expiry-period"] = online_config.timestamp_expiry
-            role = root.get_delegated_role("snapshot")
-            role.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
+            timestamp.unrecognized_fields["x-playground-expiry-period"] = online_config.timestamp_expiry
+            snapshot.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
 
     def get_role_config(self, rolename: str) -> OfflineConfig:
         """Read configuration for delegation and role from metadata"""

@@ -21,7 +21,6 @@ This is a Work-In-Progress: any code should be seen as experimental for now. See
 
 Current signing requirements are:
  * A HW key with PIV support (such as a newer Yubikey)
- * Google Cloud KMS
 
 ### Setup signer
 
@@ -40,13 +39,10 @@ Current signing requirements are:
    ```
    pip install git+https://git@github.com/jku/repository-playground#subdirectory=playground/signer
    ```
-1. _(only needed for initial repository creation)_ Install
-   [gcloud](https://cloud.google.com/sdk/docs/install), authenticate (you need
-   _roles/cloudkms.publicKeyViewer_ permission)
 
 ### Configure signer
 
-Whenver you run signing tools, you need a configuration file `.playground-sign.ini` in the root dir of the git repository that contains the metadata:
+Whenever you run signing tools, you need a configuration file `.playground-sign.ini` in the root dir of the git repository that contains the metadata:
    ```
    [settings]
    # Path to PKCS#11 module
@@ -60,8 +56,22 @@ Whenver you run signing tools, you need a configuration file `.playground-sign.i
 1. Fork the [template](https://github.com/jku/playground-template).
 1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`. `main`
    should be enabled as deployment branch in _Settings->Environments->GitHub Pages_.
+
+#### Using a KMS
+
+If you intend to use Google Cloud KMS for online signing (instead of the default
+"ambient Sigstore signing"), there are a couple of extra steps:
 1. Make sure Google Cloud allows this repository OIDC identity to sign with a KMS key.
-   Insert the GCP authentication details into .github/workflows/snapshot.yml
+1. Define your GCP authentication details as repository variables in
+   _Settings->Secrets and variables->Actions->Variables_. Examples:
+   ```
+   GCP_WORKLOAD_IDENTITY_PROVIDER: projects/843741030650/locations/global/workloadIdentityPools/git-repo-demo/providers/git-repo-demo
+   GCP_SERVICE_ACCOUNT: git-repo-demo@python-tuf-kms.iam.gserviceaccount.com
+   ```
+1. _(only needed for initial repository creation)_ Install
+   [gcloud](https://cloud.google.com/sdk/docs/install) and authenticate in the
+   environment where you plan to run playground-delegate tool (you will need
+   _roles/cloudkms.publicKeyViewer_ permission)
 
 ## Operation
 
@@ -116,10 +126,6 @@ Status: Implemented in the playground-template project. Workflows include
 * signing-event
 * snapshot
 * version-bumps
-
-These are likely to still be changed:
-* KMS authentication will possibly move inside the actions
-* there may be a configuration file like `.github/playground.ini` that the actions can use to lookup e.g. KMS configuration 
 
 See [https://github.com/jku/playground-template]
 

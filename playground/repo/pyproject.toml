@@ -12,7 +12,7 @@ version = "0.0.1"
 description = "CI tools for Repository Plaground"
 readme = "README.md"
 dependencies = [
-  "securesystemslib[gcpkms]", 
+  "securesystemslib[gcpkms, sigstore] @ git+https://github.com//secure-systems-lab/securesystemslib", 
   "tuf @ git+https://github.com/theupdateframework/python-tuf",
   "click",
 ]

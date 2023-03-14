@@ -13,6 +13,14 @@ runs:
       with:
         path: repository
 
+    - name: Authenticate to Google Cloud
+      if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER && vars.GCP_SERVICE_ACCOUNT
+      uses: google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d
+      with:
+        token_format: access_token
+        workload_identity_provider: vars.GCP_WORKLOAD_IDENTITY_PROVIDER
+        service_account: vars.GCP_SERVICE_ACCOUNT
+
     - uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435
       with:
         python-version: 3.11
