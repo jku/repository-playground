@@ -26,9 +26,9 @@ def sign(verbose: int, push: bool, event_name: str):
 
     toplevel = git(["rev-parse", "--show-toplevel"])
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    config = SignerConfig(settings_path)
+    user_config = SignerConfig(settings_path)
 
-    with signing_event(event_name, config) as repo:
+    with signing_event(event_name, user_config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
@@ -37,8 +37,8 @@ def sign(verbose: int, push: bool, event_name: str):
             key = get_signing_key_input("To accept the invitation, please insert your HW key and press enter")
             for rolename in repo.invites.copy():
                 # Modify the delegation
-                config = repo.get_role_config(rolename)
-                repo.set_role_config(rolename, config, key)
+                role_config = repo.get_role_config(rolename)
+                repo.set_role_config(rolename, role_config, key)
 
                 # Sign the role we are now a signer for
                 if rolename != "root":
@@ -72,12 +72,12 @@ def sign(verbose: int, push: bool, event_name: str):
             raise NotImplementedError
 
         if changed:
-            git(["commit", "-m", f"Signed by {config.user_name}", "--", "metadata"])
+            git(["commit", "-m", f"Signed by {user_config.user_name}", "--", "metadata"])
             if push:
-                msg = f"Press enter to push signature(s) to {config.push_remote}/{event_name}"
+                msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
-                git(["push", config.push_remote, f"HEAD:refs/heads/{event_name}"])
-                click.echo(f"Pushed branch {event_name} to {config.push_remote}")
+                git(["push", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
+                click.echo(f"Pushed branch {event_name} to {user_config.push_remote}")
             else:
                 # TODO: maybe deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")

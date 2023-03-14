@@ -167,7 +167,7 @@ def _init_repository(repo: SignerRepository) -> bool:
     repo.set_online_config(online_config)
     return True
 
-def _update_online_roles(repo) -> bool:
+def _update_online_roles(repo: SignerRepository) -> bool:
     click.echo(f"Modifying online roles")
 
     config = repo.get_online_config()
@@ -210,9 +210,9 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
 
     toplevel = git(["rev-parse", "--show-toplevel"])
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    config = SignerConfig(settings_path)
+    user_config = SignerConfig(settings_path)
 
-    with signing_event(event_name, config) as repo:
+    with signing_event(event_name, user_config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
             changed = _init_repository(repo)
         else:
@@ -228,10 +228,10 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
             git(["add", f"metadata/{role}.json"])
             git(["commit", "-m", f"'{role}' role/delegation change", "--", "metadata"])
             if push:
-                msg = f"Press enter to push changes to {config.push_remote}/{event_name}"
+                msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
-                git(["push", config.push_remote, f"HEAD:refs/heads/{event_name}"])
-                click.echo(f"Pushed branch {event_name} to {config.push_remote}")
+                git(["push", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
+                click.echo(f"Pushed branch {event_name} to {user_config.push_remote}")
             else:
                 # TODO: deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")
