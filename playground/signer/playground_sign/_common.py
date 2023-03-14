@@ -25,8 +25,8 @@ class SignerConfig:
         try:
             self.user_name = config["settings"]["user-name"]
             self.pykcs11lib = config["settings"]["pykcs11lib"]
-            self.push_remote = config["settings"]["pull-remote"]
-            self.pull_remote = config["settings"]["push-remote"]
+            self.push_remote = config["settings"]["push-remote"]
+            self.pull_remote = config["settings"]["pull-remote"]
         except KeyError as e:
             raise click.ClickException(f"Failed to find required setting {e} in {path}")
 
