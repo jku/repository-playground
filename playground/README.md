@@ -81,24 +81,24 @@ If you intend to use Google Cloud KMS for online signing (instead of the default
 
 Both tools (`playground-delegate` and `playground-sign`) take one required argument, the
 signing event name (it is used as a git branch name). Typically the signing event exists
-and you know its name but in some cases (delegation, targetmodification) you can
-just choose a name for a new signing event: anything starting with "sign/" is fine.
+and you know its name but in some cases (delegation, target modification) you can choose
+a name for a new signing event: anything starting with "sign/" is fine.
 
 The tools will fetch the current signing event content from a matching branch in
-_pull-remote_. After signing or delegatation changes, the tools will push those changes
+_pull-remote_. After signing or delegatation changes, the tools will push the changes
 to matching branch on _push-remote_.
 
-Notes on remotes:
+Notes on remotes configured in `.playground-sign.ini`:
 * _pull-remote_ should always be the actual TUF repository
 * If you have permissions to push to the TUF repository, you can set _push-remote_ to same value
-* Otherwise you can set _push-remote_ to your fork: in this case you will have to make a PR
-  from your fork to the TUF repository after running the tool.
+* Otherwise you can set _push-remote_ to your fork: in this case after running the tools, you
+  should make a PR from your fork to the signing event branch on the TUF repository
 
 ### Initial signing event
 
 1. Run delegate tool to create initial metadata
    ```
-   playground-delegate sign/initialize
+   playground-delegate <event-name>
    ```
 1. Respond to the prompts
 
