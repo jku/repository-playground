@@ -80,6 +80,19 @@ def _get_offline_input(
     return config
 
 
+def _sigstore_import() -> tuple[str, SigstoreKey]:
+    # WORKAROUND: build sigstore key and uri here since there is no import yet
+    # TODO pull-remote should come from config once that exists
+    pull_remote = "origin"
+    issuer = "https://token.actions.githubusercontent.com"
+    url = parse.urlparse(git(["config", "--get", f"remote.{pull_remote}.url"]))
+    repo = url.path[1:-len(".git")]
+    # This is for snapshot only -- will not work for version-bumps
+    identity = f"https://github.com/{repo}/.github/workflows/snapshot.yml@refs/heads/main"
+    uri = "sigstore:"
+    key = SigstoreKey("abcd", "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": identity})
+    return uri, key
+
 def _get_online_input(
     config: OnlineConfig
 ) -> OnlineConfig:
@@ -96,10 +109,7 @@ def _get_online_input(
             show_default=False,
         )
         if choice == 0:
-            if not config.uri:
-                click.secho("Error: Missing online key", fg="red")
-            else:
-                break
+            break
         if choice == 1:
             # TODO use value_proc argument to validate the input
             key_id = click.prompt(
@@ -107,14 +117,7 @@ def _get_online_input(
                 default=""
             )
             if key_id == "":
-                # WORKAROUND for sigstore not having import yet
-                issuer = "https://token.actions.githubusercontent.com"
-                url = parse.urlparse(git(["config", "--get", "remote.origin.url"]))
-                repo = url.path[1:-len(".git")]
-                # This is for snapshot only -- will not work for version-bumps
-                identity = f"https://github.com/{repo}/.github/workflows/snapshot.yml@refs/heads/main"
-                config.uri = "sigstore:"
-                config.key = SigstoreKey("abcd", "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": identity})
+                config.uri, config.key = _sigstore_import()
             else:
                 try:
                     config.uri, config.key = GCPSigner.import_(key_id)
@@ -141,7 +144,10 @@ def _init_repository(repo: SignerRepository) -> bool:
 
     root_config = _get_offline_input("root", OfflineConfig([repo.user_name], 1, 365, 60))
     targets_config = _get_offline_input("targets", deepcopy(root_config))
-    online_config = _get_online_input(OnlineConfig(None, None, 1, root_config.expiry_period))
+
+    # As default we offer sigstore online key(s)
+    uri, key = _sigstore_import()
+    online_config = _get_online_input(OnlineConfig(key, uri, 1, root_config.expiry_period))
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:
