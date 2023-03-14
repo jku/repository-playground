@@ -49,6 +49,10 @@ Whenever you run signing tools, you need a configuration file `.playground-sign.
    pykcs11lib = /usr/lib/x86_64-linux-gnu/libykcs11.so
    # GitHub username
    user-name = @my-github-username
+
+   # Git remotes to pull and push from
+   pull-remote = origin
+   push-remote = origin
    ```
 
 ### Setup a new Playground repository
@@ -75,36 +79,46 @@ If you intend to use Google Cloud KMS for online signing (instead of the default
 
 ## Operation
 
+Both tools (`playground-delegate` and `playground-sign`) take one required argument, the
+signing event name (it is used as a git branch name). Typically the signing event exists
+and you know its name but in some cases (delegation, targetmodification) you can
+just choose a name for a new signing event: anything starting with "sign/" is fine.
+
+The tools will fetch the current signing event content from a matching branch in
+_pull-remote_. After signing or delegatation changes, the tools will push those changes
+to matching branch on _push-remote_.
+
+Notes on remotes:
+* _pull-remote_ should always be the actual TUF repository
+* If you have permissions to push to the TUF repository, you can set _push-remote_ to same value
+* Otherwise you can set _push-remote_ to your fork: in this case you will have to make a PR
+  from your fork to the TUF repository after running the tool.
+
 ### Initial signing event
 
 1. Run delegate tool to create initial metadata
    ```
-   playground-delegate
+   playground-delegate sign/initialize
    ```
-1. Commit all changes in `metadata/`, push to a branch `sign/<signing-event-name>`
+1. Respond to the prompts
 
-This starts a signing event.
 
 ### Modify target files
 
 1. Add, remove or modify files under targets/ directory
 1. Run signer tool
    ```
-   playground-sign
+   playground-sign <event-name>
    ```
-1. Commit changes (both target files and metadata) and push to a branch `sign/<signing-event-name>`
-
-This starts a signing event.
+1. Respond to the prompts
 
 ### Add a delegation or modify an existing one
 
 1. Run delegate tool when you want to modify a roles delegation
    ```
-   playground-delegate <role>
+   playground-delegate <event-name> <role>
    ```
-1. Commit all changes in `metadata/`, push to a branch `sign/<signing-event-name>`
-
-This starts a signing event.
+1. Respond to the prompts
 
 ### Sign changes made by others
 
@@ -112,11 +126,9 @@ Signing should be done when the signing event (GitHub issue) asks for it:
 
 1. Run signer tool in the signing event branch
    ```
-   playground-sign
+   playground-sign <event-name>
    ```
-2. Commit metadata changes and push to a branch `sign/<signing-event-name>`
-
-This updates the signing event.
+1. Respond to the prompts
 
 ## Components
 
@@ -143,7 +155,6 @@ Various parts are still very experimental
 * output of the signing event is a work in progress
 * failures in the actions are not visible to user
 * testing is still completely manual
-* Several actions are hacks more than mature implementations 
 
 See [repo/](repo/), See [actions/](actions/)
 
@@ -152,7 +163,6 @@ See [repo/](repo/), See [actions/](actions/)
 Status:
 * playground-delegate mostly implented
 * playground-sign mostly implemented, althought output is a work in progress
-* Neither tool integrates git push/pull yet: at least for playground-sign integration would make a lot of sense
 
 See [signer/](signer/)
 
