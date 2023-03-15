@@ -58,8 +58,7 @@ Whenever you run signing tools, you need a configuration file `.playground-sign.
 ### Setup a new Playground repository
 
 1. Fork the [template](https://github.com/jku/playground-template).
-1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`. `main`
-   should be enabled as deployment branch in _Settings->Environments->GitHub Pages_.
+1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`
 
 #### Using a KMS
 
