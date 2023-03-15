@@ -284,18 +284,32 @@ class PlaygroundRepository(Repository):
         return self._get_signing_status(delegator, rolename), prev_status
 
     def publish(self, directory: str):
+        metadata_dir = os.path.join(directory, "metadata")
+        targets_dir = os.path.join(directory, "targets")
+        os.makedirs(metadata_dir, exist_ok=True)
+
         for src_path in glob(os.path.join(self._dir, "root_history", "*.root.json")):
-            shutil.copy(src_path, directory)
-        shutil.copy(os.path.join(self._dir, "timestamp.json"), directory)
+            shutil.copy(src_path, metadata_dir)
+        shutil.copy(os.path.join(self._dir, "timestamp.json"), metadata_dir)
 
         md: Metadata[Snapshot] = self.open("snapshot")
-        dst_path = os.path.join(directory, f"{md.signed.version}.snapshot.json")
+        dst_path = os.path.join(metadata_dir, f"{md.signed.version}.snapshot.json")
         shutil.copy(os.path.join(self._dir, "snapshot.json"), dst_path)
 
         for filename, metafile  in md.signed.meta.items():
             src_path = os.path.join(self._dir, filename)
-            dst_path = os.path.join(directory, f"{metafile.version}.{filename}")
+            dst_path = os.path.join(metadata_dir, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
+
+            targets_md: Metadata[Targets] = self.open(filename[:-len(".json")])
+            for target in targets_md.signed.targets.values():
+                parent, sep, name = target.path.rpartition("/")
+                os.makedirs(os.path.join(targets_dir, parent), exist_ok=True)
+                src_path = os.path.join(self._dir, "..", "targets", parent, name)
+                for hash in target.hashes.values():
+                    dst_path = os.path.join(targets_dir, parent, f"{hash}.{name}")
+                    shutil.copy(src_path, dst_path)
+
 
     def bump_expiring(self, rolename:str) -> int | None:
         """Create a new version of role if it is about to expire"""
