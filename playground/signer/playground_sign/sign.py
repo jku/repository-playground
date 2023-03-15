@@ -13,7 +13,7 @@ from playground_sign._common import (
     SignerConfig,
     signing_event,
 )
-from playground_sign._signer_repository import SignerState
+from playground_sign._signer_repository import SignerState, State
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,16 @@ def sign(verbose: int, push: bool, event_name: str):
             click.prompt("Press enter to approve these changes", default=True, show_default=False)
 
             repo.update_targets()
+
+            for rolename, states in repo.target_changes.items():
+                for target_state in states.values():
+                    parent, _, name = target_state.target.path.rpartition("/")
+                    path = os.path.join("targets", parent, name)
+                    if target_state.state == State.REMOVED:
+                        git(["rm", "--", path])
+                    else:
+                        git(["add", "--", path])
+
             changed = True
         elif repo.state == SignerState.NO_ACTION:
             changed = False
@@ -73,7 +83,8 @@ def sign(verbose: int, push: bool, event_name: str):
             raise NotImplementedError
 
         if changed:
-            git(["commit", "-m", f"Signed by {user_config.user_name}", "--", "metadata"])
+            git(["add", "metadata"])
+            git(["commit", "-m", f"Signed by {user_config.user_name}"])
             if push:
                 msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
