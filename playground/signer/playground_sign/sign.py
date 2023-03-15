@@ -9,6 +9,7 @@ import os
 from playground_sign._common import (
     get_signing_key_input,
     git,
+    git_echo,
     SignerConfig,
     signing_event,
 )
@@ -76,8 +77,7 @@ def sign(verbose: int, push: bool, event_name: str):
             if push:
                 msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
-                git(["push", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
-                click.echo(f"Pushed branch {event_name} to {user_config.push_remote}")
+                git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
             else:
                 # TODO: maybe deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")
