@@ -84,11 +84,10 @@ def _get_offline_input(
     return config
 
 
-def _sigstore_import() -> list[tuple[str, SigstoreKey]]:
+def _sigstore_import(pull_remote: str) -> list[tuple[str, SigstoreKey]]:
     # WORKAROUND: build sigstore key and uri here since there is no import yet
     # TODO pull-remote should come from config once that exists
     uri = "sigstore:"
-    pull_remote = "origin"
     issuer = "https://token.actions.githubusercontent.com"
     url = parse.urlparse(git(["config", "--get", f"remote.{pull_remote}.url"]))
     repo = url.path[1:-len(".git")]
@@ -102,7 +101,7 @@ def _sigstore_import() -> list[tuple[str, SigstoreKey]]:
     return keys
 
 def _get_online_input(
-    config: OnlineConfig
+    config: OnlineConfig, user_config: SignerConfig
 ) -> OnlineConfig:
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring online roles")
@@ -125,7 +124,7 @@ def _get_online_input(
                 default=""
             )
             if key_id == "":
-                config.keys = _sigstore_import()
+                config.keys = _sigstore_import(user_config.pull_remote)
             else:
                 try:
                     uri, key = GCPSigner.import_(key_id)
@@ -148,15 +147,16 @@ def _get_online_input(
     return config
 
 
-def _init_repository(repo: SignerRepository) -> bool:
+def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
     click.echo("Creating a new Playground TUF repository")
 
     root_config = _get_offline_input("root", OfflineConfig([repo.user_name], 1, 365, 60))
     targets_config = _get_offline_input("targets", deepcopy(root_config))
 
     # As default we offer sigstore online key(s)
-    keys = _sigstore_import()
-    online_config = _get_online_input(OnlineConfig(keys, 1, root_config.expiry_period))
+    keys = _sigstore_import(user_config.pull_remote)
+    default_config = OnlineConfig(keys, 1, root_config.expiry_period)
+    online_config = _get_online_input(default_config, user_config)
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:
@@ -167,11 +167,11 @@ def _init_repository(repo: SignerRepository) -> bool:
     repo.set_online_config(online_config)
     return True
 
-def _update_online_roles(repo: SignerRepository) -> bool:
+def _update_online_roles(repo: SignerRepository, user_config: SignerConfig) -> bool:
     click.echo(f"Modifying online roles")
 
     config = repo.get_online_config()
-    new_config = _get_online_input(config)
+    new_config = _get_online_input(config, user_config)
     if new_config == config:
         return False
 
@@ -202,7 +202,7 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=True)
-@click.argument("event-name", metavar="signing-event")
+@click.argument("event-name", metavar="SIGNING-EVENT")
 @click.argument("role", required=False)
 def delegate(verbose: int, push: bool, event_name: str, role: str | None):
     """Tool for modifying Repository Playground delegations."""
@@ -214,13 +214,13 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
 
     with signing_event(event_name, user_config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
-            changed = _init_repository(repo)
+            changed = _init_repository(repo, user_config)
         else:
             if role is None:
                 role = click.prompt("Enter name of role to modify")
 
             if role in ["timestamp", "snapshot"]:
-                changed = _update_online_roles(repo)
+                changed = _update_online_roles(repo, user_config)
             else:
                 changed =  _update_offline_role(repo, role)
 

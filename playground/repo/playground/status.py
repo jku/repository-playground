@@ -47,7 +47,7 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str
     return changed_roles
 
 
-def _role_status(repo: PlaygroundRepository, role:str) -> bool:
+def _role_status(repo: PlaygroundRepository, role:str, event_name) -> bool:
     status, prev_status = repo.status(role)
     role_is_valid = status.valid
     sig_counts = f"{len(status.signed)}/{status.threshold}"
@@ -63,7 +63,7 @@ def _role_status(repo: PlaygroundRepository, role:str) -> bool:
     if status.invites:
         click.echo(f"#### :x: {role}")
         click.echo(f"{role} delegations have open invites ({', '.join(status.invites)}).")
-        click.echo(f"Invitees can accept the invitations by running `playground-sign`")
+        click.echo(f"Invitees can accept the invitations by running `playground-sign {event_name}`")
     elif role_is_valid:
         click.echo(f"#### :heavy_check_mark: {role}")
         click.echo(f"{role} is verified and signed by {sig_counts} signers ({', '.join(signed)}).")
@@ -78,7 +78,7 @@ def _role_status(repo: PlaygroundRepository, role:str) -> bool:
         click.echo(f"**Error**: {status.message}")
     elif missing and not status.invites:
         click.echo(f"Still missing signatures from {', '.join(missing)}")
-        click.echo(f"Signers can sign these changes by running `playground-sign`")
+        click.echo(f"Signers can sign these changes by running `playground-sign {event_name}`")
 
     return role_is_valid and len(status.invites) == 0
 
@@ -89,10 +89,13 @@ def status(verbose: int) -> None:
     """Status markdown output tool for Repository Playground CI"""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
+    event_name = _git(["branch", "--show-current"]).stdout.strip()
+
     click.echo("### Current signing event state")
+    click.echo(f"Event {event_name}")
     
     if not os.path.exists("metadata/root.json"):
-        click.echo("Repository does not exist yet. Create one with `playground-delegate`.")
+        click.echo(f"Repository does not exist yet. Create one with `playground-delegate {event_name}`.")
         sys.exit(1)
 
     # Find the known-good commit
@@ -113,7 +116,7 @@ def status(verbose: int) -> None:
         # Print status for each role, count invalid roles
         repo = PlaygroundRepository("metadata", good_dir)
         for role in _find_changed_roles(good_dir, "metadata"):
-            if not _role_status(repo, role):
+            if not _role_status(repo, role, event_name):
                 success = False
 
     sys.exit(0 if success else 1)

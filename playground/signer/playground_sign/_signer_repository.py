@@ -139,7 +139,7 @@ class SignerRepository(Repository):
         # NOTE comparison is between target-files-on-disk vs current metadata-on-disk
         # So this state is for _local_ changes initiated by this user
         # * possibly the comparison should be against upstream branch metadata:
-        #   to cover the case of running the too lmultiple times
+        #   to cover the case of running the tool multiple times
         # * possibly similar functionality is required to present upstream change
         #   to signer to make an informed decision about signing
         target_dir = os.path.join(self._dir, "..", "targets")
