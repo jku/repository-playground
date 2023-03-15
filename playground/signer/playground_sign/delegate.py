@@ -83,21 +83,27 @@ def _get_offline_input(
 
     return config
 
+def _get_repo_name(remote: str):
+    url = parse.urlparse(git(["config", "--get", f"remote.{remote}.url"]))
+    repo = url.path[:-len(".git")]
+    # ssh-urls are relative URLs according to urllib: host is actually part of
+    # path. We don't want the host part:
+    _, _, repo = repo.rpartition(":")
+    # http urls on the other hand are not relative: remove the leading /
+    return repo.lstrip("/")
 
-def _sigstore_import(pull_remote: str) -> list[tuple[str, SigstoreKey]]:
+def _sigstore_import(pull_remote: str) -> list[ SigstoreKey]:
     # WORKAROUND: build sigstore key and uri here since there is no import yet
-    # TODO pull-remote should come from config once that exists
-    uri = "sigstore:"
     issuer = "https://token.actions.githubusercontent.com"
-    url = parse.urlparse(git(["config", "--get", f"remote.{pull_remote}.url"]))
-    repo = url.path[1:-len(".git")]
+    repo = _get_repo_name(pull_remote)
 
     # Create separate keys for the two workflows that need keys
     keys = []
     for workflow, keyid in [("snapshot.yml", "abcd"), ("version-bumps.yml", "efgh")]:
         id = f"https://github.com/{repo}/.github/workflows/{workflow}@refs/heads/main"
         key = SigstoreKey(keyid, "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": id})
-        keys.append((uri, key))
+        key.unrecognized_fields["x-playground-online-uri"] = "sigstore:"
+        keys.append(key)
     return keys
 
 def _get_online_input(
@@ -106,8 +112,9 @@ def _get_online_input(
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring online roles")
     while True:
+        keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
         choice = click.prompt(
-            f" 1. Configure online key: {config.keys[0][0]}\n"
+            f" 1. Configure online key: {keyuri}\n"
             f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
             f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days\n"
             "Please choose an option or press enter to continue",
@@ -128,7 +135,8 @@ def _get_online_input(
             else:
                 try:
                     uri, key = GCPSigner.import_(key_id)
-                    config.keys = [(uri, key)]
+                    key.unrecognized_fields["x-playground-online-uri"] = uri
+                    config.keys = [key]
                 except Exception as e:
                     raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
         if choice == 2:
