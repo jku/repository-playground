@@ -83,16 +83,6 @@ def _role_status(repo: PlaygroundRepository, role:str, event_name) -> bool:
 
     return role_is_valid and len(status.invites) == 0
 
-def _build_branch_url(branch: str) -> str:
-    url = parse.urlparse(_git(["config", "--get", f"remote.origin.url"]).stdout.strip())
-    repo = url.path[:-len(".git")]
-    # ssh-urls are relative URLs according to urllib: host is actually part of
-    # path. We don't want the host part:
-    _, _, repo = repo.rpartition(":")
-    # http urls on the other hand are not relative: remove the leading /
-    repo = repo.lstrip("/")
-
-    return f"https://github.com/{repo}/compare/{branch}"
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
@@ -103,7 +93,7 @@ def status(verbose: int) -> None:
     event_name = _git(["branch", "--show-current"]).stdout.strip()
 
     click.echo("### Current signing event state")
-    click.echo(f"Event [{event_name}]({_build_branch_url(event_name)})")
+    click.echo(f"Event [{event_name}](../compare/{event_name})")
 
     if not os.path.exists("metadata/root.json"):
         click.echo(f"Repository does not exist yet. Create one with `playground-delegate {event_name}`.")

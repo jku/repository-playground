@@ -234,8 +234,12 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
                 changed =  _update_offline_role(repo, role)
 
         if changed:
-            git(["add", f"metadata/{role}.json"])
-            git(["commit", "-m", f"'{role}' role/delegation change", "--", "metadata"])
+            git(["add", "metadata/"])
+            if role:
+                msg = f"'{role}' role/delegation change"
+            else:
+                msg = "Initial offline metadata"
+            git(["commit", "-m", msg, "--", "metadata"])
             if push:
                 msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
