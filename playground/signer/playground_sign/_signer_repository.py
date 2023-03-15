@@ -44,8 +44,8 @@ class TargetState:
 
 @dataclass
 class OnlineConfig:
-    # All keys are use as singning keys for both snapshot and timestamp
-    keys: list[tuple[str, Key]]
+    # All keys are used as signing keys for both snapshot and timestamp
+    keys: list[Key]
     timestamp_expiry: int
     snapshot_expiry: int
 
@@ -139,7 +139,7 @@ class SignerRepository(Repository):
         # NOTE comparison is between target-files-on-disk vs current metadata-on-disk
         # So this state is for _local_ changes initiated by this user
         # * possibly the comparison should be against upstream branch metadata:
-        #   to cover the case of running the too lmultiple times
+        #   to cover the case of running the tool multiple times
         # * possibly similar functionality is required to present upstream change
         #   to signer to make an informed decision about signing
         target_dir = os.path.join(self._dir, "..", "targets")
@@ -314,9 +314,7 @@ class SignerRepository(Repository):
         snapshot_expiry = snapshot_role.unrecognized_fields["x-playground-expiry-period"]
         keys = []
         for keyid in timestamp_role.keyids:
-            key = root.get_key(keyid)
-            uri = key.unrecognized_fields["x-playground-online-uri"]
-            keys.append((uri, key))
+            keys.append(root.get_key(keyid))
 
         return OnlineConfig(keys, timestamp_expiry, snapshot_expiry)
 
@@ -334,8 +332,7 @@ class SignerRepository(Repository):
                 root.revoke_key(keyid, "snapshot")
 
             # Add new keys
-            for uri, key in online_config.keys:
-                key.unrecognized_fields["x-playground-online-uri"] = uri
+            for key in online_config.keys:
                 root.add_key(key, "timestamp")
                 root.add_key(key, "snapshot")
 

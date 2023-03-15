@@ -4,7 +4,6 @@
 
 from copy import deepcopy
 import copy
-from tempfile import TemporaryDirectory
 from urllib import parse
 import click
 import logging
@@ -13,9 +12,10 @@ from securesystemslib.signer import GCPSigner, SigstoreKey, KEY_FOR_TYPE_AND_SCH
 
 from playground_sign._common import (
     get_signing_key_input,
-    get_secret_input,
     git,
-    read_settings,
+    git_echo,
+    SignerConfig,
+    signing_event,
 )
 from playground_sign._signer_repository import (
     OnlineConfig,
@@ -84,32 +84,38 @@ def _get_offline_input(
 
     return config
 
+def _get_repo_name(remote: str):
+    url = parse.urlparse(git(["config", "--get", f"remote.{remote}.url"]))
+    repo = url.path[:-len(".git")]
+    # ssh-urls are relative URLs according to urllib: host is actually part of
+    # path. We don't want the host part:
+    _, _, repo = repo.rpartition(":")
+    # http urls on the other hand are not relative: remove the leading /
+    return repo.lstrip("/")
 
-def _sigstore_import() -> list[tuple[str, SigstoreKey]]:
+def _sigstore_import(pull_remote: str) -> list[ SigstoreKey]:
     # WORKAROUND: build sigstore key and uri here since there is no import yet
-    # TODO pull-remote should come from config once that exists
-    uri = "sigstore:"
-    pull_remote = "origin"
     issuer = "https://token.actions.githubusercontent.com"
-    url = parse.urlparse(git(["config", "--get", f"remote.{pull_remote}.url"]))
-    repo = url.path[1:-len(".git")]
+    repo = _get_repo_name(pull_remote)
 
     # Create separate keys for the two workflows that need keys
     keys = []
     for workflow, keyid in [("snapshot.yml", "abcd"), ("version-bumps.yml", "efgh")]:
         id = f"https://github.com/{repo}/.github/workflows/{workflow}@refs/heads/main"
         key = SigstoreKey(keyid, "sigstore-oidc", "Fulcio", {"issuer": issuer, "identity": id})
-        keys.append((uri, key))
+        key.unrecognized_fields["x-playground-online-uri"] = "sigstore:"
+        keys.append(key)
     return keys
 
 def _get_online_input(
-    config: OnlineConfig
+    config: OnlineConfig, user_config: SignerConfig
 ) -> OnlineConfig:
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring online roles")
     while True:
+        keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
         choice = click.prompt(
-            f" 1. Configure online key: {config.keys[0][0]}\n"
+            f" 1. Configure online key: {keyuri}\n"
             f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
             f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days\n"
             "Please choose an option or press enter to continue",
@@ -126,11 +132,12 @@ def _get_online_input(
                 default=""
             )
             if key_id == "":
-                config.keys = _sigstore_import()
+                config.keys = _sigstore_import(user_config.pull_remote)
             else:
                 try:
                     uri, key = GCPSigner.import_(key_id)
-                    config.keys = [(uri, key)]
+                    key.unrecognized_fields["x-playground-online-uri"] = uri
+                    config.keys = [key]
                 except Exception as e:
                     raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
         if choice == 2:
@@ -149,15 +156,16 @@ def _get_online_input(
     return config
 
 
-def _init_repository(repo: SignerRepository) -> bool:
+def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
     click.echo("Creating a new Playground TUF repository")
 
     root_config = _get_offline_input("root", OfflineConfig([repo.user_name], 1, 365, 60))
     targets_config = _get_offline_input("targets", deepcopy(root_config))
 
     # As default we offer sigstore online key(s)
-    keys = _sigstore_import()
-    online_config = _get_online_input(OnlineConfig(keys, 1, root_config.expiry_period))
+    keys = _sigstore_import(user_config.pull_remote)
+    default_config = OnlineConfig(keys, 1, root_config.expiry_period)
+    online_config = _get_online_input(default_config, user_config)
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:
@@ -168,11 +176,11 @@ def _init_repository(repo: SignerRepository) -> bool:
     repo.set_online_config(online_config)
     return True
 
-def _update_online_roles(repo) -> bool:
+def _update_online_roles(repo: SignerRepository, user_config: SignerConfig) -> bool:
     click.echo(f"Modifying online roles")
 
     config = repo.get_online_config()
-    new_config = _get_online_input(config)
+    new_config = _get_online_input(config, user_config)
     if new_config == config:
         return False
 
@@ -202,42 +210,39 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
+@click.option("--push/--no-push", default=True)
+@click.argument("event-name", metavar="SIGNING-EVENT")
 @click.argument("role", required=False)
-def delegate(verbose: int, role: str | None):
+def delegate(verbose: int, push: bool, event_name: str, role: str | None):
     """Tool for modifying Repository Playground delegations."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = git(["rev-parse", "--show-toplevel"])
-    metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
+    user_config = SignerConfig(settings_path)
 
-    # PyKCS11 (Yubikey support) needs the module path
-    # TODO: if config is not set, complain/ask the user?
-    if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
-
-    # checkout the starting point of this signing event
-    known_good_sha = git(["merge-base", "origin/main", "HEAD"])
-    with TemporaryDirectory() as known_good_dir:
-        prev_dir = os.path.join(known_good_dir, "metadata")
-        git(["clone", "--quiet", toplevel, known_good_dir])
-        git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
-
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+    with signing_event(event_name, user_config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
-            changed = _init_repository(repo)
-        elif role in ["timestamp", "snapshot"]:
-            changed = _update_online_roles(repo)
-        elif role:
-            changed =  _update_offline_role(repo, role)
+            changed = _init_repository(repo, user_config)
         else:
-            raise click.UsageError("ROLE is required")
+            if role is None:
+                role = click.prompt("Enter name of role to modify")
 
-    if changed:
-        click.echo(
-            "Done. Tool does not commit or push at the moment. Try\n"
-            "  git add metadata\n"
-            f"  git commit -m 'Delegation change by {user_name}'\n"
-            f"  git push origin <signing_event>"
-        )
+            if role in ["timestamp", "snapshot"]:
+                changed = _update_online_roles(repo, user_config)
+            else:
+                changed =  _update_offline_role(repo, role)
+
+        if changed:
+            git(["add", f"metadata/{role}.json"])
+            git(["commit", "-m", f"'{role}' role/delegation change", "--", "metadata"])
+            if push:
+                msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
+                click.prompt(msg, default=True, show_default=False)
+                git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
+            else:
+                # TODO: deal with existing branch?
+                click.echo(f"Creating local branch {event_name}")
+                git(["branch", event_name])
+        else:
+            click.echo("Nothing to do")

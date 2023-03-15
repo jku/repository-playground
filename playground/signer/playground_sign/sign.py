@@ -2,48 +2,34 @@
 
 """playground-sign: A command line tool to sign Repository Playground changes"""
 
-from tempfile import TemporaryDirectory
 import click
 import logging
 import os
 
 from playground_sign._common import (
     get_signing_key_input,
-    get_secret_input,
     git,
-    read_settings,
+    git_echo,
+    SignerConfig,
+    signing_event,
 )
-from playground_sign._signer_repository import (
-    SignerRepository,
-    SignerState,
-)
+from playground_sign._signer_repository import SignerState
 
 logger = logging.getLogger(__name__)
 
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
-def sign(verbose: int):
+@click.option("--push/--no-push", default=True)
+@click.argument("event-name", metavar="signing-event")
+def sign(verbose: int, push: bool, event_name: str):
     """Signing tool for Repository Playground signing events."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     toplevel = git(["rev-parse", "--show-toplevel"])
-    metadata_dir = os.path.join(toplevel, "metadata")
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_name, pykcs11lib =read_settings(settings_path)
+    user_config = SignerConfig(settings_path)
 
-    # PyKCS11 (Yubikey support) needs the module path
-    # TODO: if config is not set, complain/ask the user?
-    if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = pykcs11lib
-
-    # checkout the starting point of this signing event
-    known_good_sha = git(["merge-base", "origin/main", "HEAD"])
-    with TemporaryDirectory() as known_good_dir:
-        prev_dir = os.path.join(known_good_dir, "metadata")
-        git(["clone", "--quiet", toplevel, known_good_dir])
-        git(["-C", known_good_dir, "checkout", "--quiet", known_good_sha])
-
-        repo = SignerRepository(metadata_dir, prev_dir, user_name, get_secret_input)
+    with signing_event(event_name, user_config) as repo:
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
@@ -52,8 +38,8 @@ def sign(verbose: int):
             key = get_signing_key_input("To accept the invitation, please insert your HW key and press enter")
             for rolename in repo.invites.copy():
                 # Modify the delegation
-                config = repo.get_role_config(rolename)
-                repo.set_role_config(rolename, config, key)
+                role_config = repo.get_role_config(rolename)
+                repo.set_role_config(rolename, role_config, key)
 
                 # Sign the role we are now a signer for
                 if rolename != "root":
@@ -86,10 +72,15 @@ def sign(verbose: int):
         else:
             raise NotImplementedError
 
-    if changed:
-        click.echo(
-            "Done. Tool does not commit or push at the moment. Try\n"
-            "  git add metadata\n"
-            f"  git commit -m 'Signed by {user_name}'\n"
-            "  git push origin <signing_event>"
-        )
+        if changed:
+            git(["commit", "-m", f"Signed by {user_config.user_name}", "--", "metadata"])
+            if push:
+                msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
+                click.prompt(msg, default=True, show_default=False)
+                git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
+            else:
+                # TODO: maybe deal with existing branch?
+                click.echo(f"Creating local branch {event_name}")
+                git(["branch", event_name])
+        else:
+            click.echo("Nothing to do.")
