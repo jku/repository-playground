@@ -13,7 +13,7 @@ description = "CI tools for Repository Plaground"
 readme = "README.md"
 dependencies = [
   "securesystemslib[gcpkms, sigstore] @ git+https://github.com//secure-systems-lab/securesystemslib", 
-  "tuf @ git+https://github.com/theupdateframework/python-tuf",
+  "tuf @ git+https://github.com/theupdateframework/python-tuf@9d09c427c",
   "click",
 ]
 requires-python = ">=3.10"
