@@ -75,7 +75,7 @@ class TargetStates(defaultdict[str, dict[str, TargetState]]):
                 rolename = "targets"
                 targetpath = fname
 
-            target = TargetFile.from_file(targetpath, realpath, ["sha-256"])
+            target = TargetFile.from_file(targetpath, realpath, ["sha256"])
             # actual state may also be MODIFIED (or no change), see below
             self[rolename][targetpath] = TargetState(target, State.ADDED)
             self.unknown_rolenames.add(rolename)
