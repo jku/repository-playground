@@ -6,15 +6,12 @@ Development install: `pip install -e .`
 
 ### Usage
 
-These commands are used by the signing-event GitHub action.
+These commands are used by the GitHub actions in the [actions directory](../actions/) .
 
-`playground-status <known-good-directory> <event-name>`: Prints status of the signing event
-based on the changes done in the signing event and invites in .signing-event-state file
+`playground-status`: Prints status of the signing event (aka current branch) based on the changes done in the signing event (compared to the startig point of the event) and invites in .signing-event-state file
 
-`playground-publish <dir>`: Creates a deploy-ready metadata repository in the given directory
+`playground-snapshot [--push] [<PUBLISH_DIR>]`: Updates snapshot & timestamp based on current repository content. If `--push` is used, the changes are pushed to main branch. If PUBLISH_DIR is given, will create a publishable repository version in PUBLISH_DIR. 
 
-`playground-snapshot`: Updates snapshot & timestamp based on current repository content
+`playground-online`: Bumps the online roles version if they are about to expire, and signs the changes. If `--push` is used, the changes are pushed to main branch. If PUBLISH_DIR is given, will create a publishable repository version in PUBLISH_DIR. 
 
-`playground-timestamp`: Updates timestamp based on current repository content
-
-`playground-bump-expiring <rolename>`: Bumps the roles version if it is about to expire
+`playground-offline`: Bumps the roles versions if they are about to expire. If `--push` is used, the changes are pushed to signing event branches (branch per role): the signing event names are printed on stdout.
