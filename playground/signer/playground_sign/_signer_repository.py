@@ -8,6 +8,7 @@ from enum import Enum, unique
 import filecmp
 from glob import glob
 import json
+import logging
 import os
 from datetime import datetime, timedelta
 from typing import Callable
@@ -19,6 +20,8 @@ from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Root, Ta
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository, AbortEdit
 
+
+logger = logging.getLogger(__name__)
 
 @unique
 class SignerState(Enum):
@@ -294,15 +297,37 @@ class SignerRepository(Repository):
         md.signed.expires = datetime.utcnow() + timedelta(days=days)
 
         md.signatures.clear()
+
+        # figure out if there are open invites to delegations of this role
+        open_invites = False
+        delegated = self._get_delegated_rolenames(md)
+        for invited_roles in self._invites.values():
+            for invited_role in invited_roles:
+                if invited_role in delegated:
+                    open_invites = True
+                    break
+
         for key in self._get_keys(role):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name:
+            if keyowner == self.user_name and open_invites:
+                logger.debug("Skipping signing: there are open invites")
+                md.signatures[key.keyid] = Signature(key.keyid, "")
+            elif keyowner == self.user_name:
                 self._sign(role, md, key)
             else:
-                # another offline signer: add empty signature
+                # add empty signature for other signers
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
         self._write(role, md)
+
+    @staticmethod
+    def _get_delegated_rolenames(md: Metadata) -> list[str]:
+        if isinstance(md.signed, Root):
+            return list(md.signed.roles.keys())
+        elif isinstance(md.signed, Targets):
+            if md.signed.delegations and md.signed.delegations.roles:
+                return list(md.signed.delegations.roles.keys())
+        return []
 
     def get_online_config(self) -> OnlineConfig:
         """Read configuration for online delegation from metadata"""
@@ -388,8 +413,23 @@ class SignerRepository(Repository):
         else:
             delegator_name = "targets"
 
+        # Remove invites for the role
+        new_invites = {}
+        for invited_signer, invited_roles in self._invites.items():
+            if rolename in invited_roles:
+                invited_roles.remove(rolename)
+            if invited_roles:
+                new_invites[invited_signer] = invited_roles
+        self._invites = new_invites
+
+        # Handle new invitations
+        for signer in config.signers:
+            if signer not in self._invites:
+                self._invites[signer] = []
+            if rolename not in self._invites[signer]:
+                self._invites[signer].append(rolename)
+
         with self.edit(delegator_name) as delegator:
-            # Handle existing signers
             changed = False
             try:
                 role = delegator.get_delegated_role(rolename)
@@ -412,10 +452,14 @@ class SignerRepository(Repository):
                     changed = True
 
             # Add user themselves
-            if self.user_name in config.signers and signing_key:
+            invited = self.user_name in self._invites and rolename in self._invites[self.user_name]
+            if invited and signing_key:
                 signing_key.unrecognized_fields["x-playground-keyowner"] = self.user_name
                 delegator.add_key(signing_key, rolename)
-                config.signers.remove(self.user_name)
+
+                self._invites[self.user_name].remove(rolename)
+                if not self._invites[self.user_name]:
+                    del self._invites[self.user_name]
                 changed = True
 
             if role.threshold != config.threshold:
@@ -434,22 +478,6 @@ class SignerRepository(Repository):
 
             signed.unrecognized_fields["x-playground-expiry-period"] = config.expiry_period
             signed.unrecognized_fields["x-playground-signing-period"] = config.signing_period
-
-        # Remove invites for the role
-        new_invites = {}
-        for invited_signer, invited_roles in self._invites.items():
-            if rolename in invited_roles:
-                invited_roles.remove(rolename)
-            if invited_roles:
-                new_invites[invited_signer] = invited_roles
-        self._invites = new_invites
-
-        # Handle new invitations
-        for signer in config.signers:
-            if signer not in self._invites:
-                self._invites[signer] = []
-            if rolename not in self._invites[signer]:
-                self._invites[signer].append(rolename)
 
         state_file_path = os.path.join(self._dir, ".signing-event-state")
         if self._invites:
