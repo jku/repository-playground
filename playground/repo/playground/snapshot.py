@@ -36,12 +36,12 @@ def snapshot(verbose: int, push: bool, publish_dir: str|None) -> None:
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     repo = PlaygroundRepository("metadata")
-    snapshot_updated, _ = repo.snapshot()
+    snapshot_updated, _ = repo.do_snapshot()
     if not snapshot_updated:
         click.echo("No snapshot needed")
         sys.exit(1)
 
-    repo.timestamp()
+    repo.do_timestamp()
 
     msg = "Snapshot & timestamp"
     _git(["add", "metadata/timestamp.json", "metadata/snapshot.json"])
