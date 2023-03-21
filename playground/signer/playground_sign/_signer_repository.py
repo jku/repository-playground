@@ -275,7 +275,7 @@ class SignerRepository(Repository):
             if role in ["snapshot", "timestamp"]:
                 raise ValueError(f"Cannot create {role}")
             if role == "root":
-                md = Metadata(Root())
+                md: Metadata = Metadata(Root())
             else:
                 md = Metadata(Targets())
             md.signed.unrecognized_fields["x-playground-expiry-period"] = 0
@@ -364,7 +364,7 @@ class SignerRepository(Repository):
             timestamp.unrecognized_fields["x-playground-expiry-period"] = online_config.timestamp_expiry
             snapshot.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
 
-    def get_role_config(self, rolename: str) -> OfflineConfig:
+    def get_role_config(self, rolename: str) -> OfflineConfig | None:
         """Read configuration for delegation and role from metadata"""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError("online roles not supported")
@@ -436,6 +436,7 @@ class SignerRepository(Repository):
                 role = delegator.get_delegated_role(rolename)
             except ValueError:
                 # Role does not exist yet: create delegation
+                assert isinstance(delegator, Targets)
                 role = DelegatedRole(rolename, [], 1, True, [f"{rolename}/*"])
                 if not delegator.delegations:
                     delegator.delegations = Delegations({}, {})
@@ -483,8 +484,8 @@ class SignerRepository(Repository):
         state_file_path = os.path.join(self._dir, ".signing-event-state")
         if self._invites:
             with open(state_file_path, "w") as f:
-                config = {"invites": self._invites}
-                f.write(json.dumps(config, indent=2))
+                state_file = {"invites": self._invites}
+                f.write(json.dumps(state_file, indent=2))
         elif os.path.exists(state_file_path):
             os.remove(state_file_path)
 

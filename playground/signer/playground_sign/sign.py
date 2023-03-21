@@ -39,6 +39,7 @@ def sign(verbose: int, push: bool, event_name: str):
             for rolename in repo.invites.copy():
                 # Modify the delegation
                 role_config = repo.get_role_config(rolename)
+                assert role_config
                 repo.set_role_config(rolename, role_config, key)
 
                 # Sign the role we are now a signer for

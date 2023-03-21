@@ -28,7 +28,7 @@ class SigningStatus:
     missing: set[str]
     threshold: int
     valid: bool
-    message: str
+    message: str | None
 
 class SigningEventState:
     """Class to manage the .signing-event-state file"""
@@ -55,7 +55,7 @@ class PlaygroundRepository(Repository):
         dir: metadata directory to operate on
         prev_dir: optional known good repository directory
     """
-    def __init__(self, dir: str, prev_dir: str = None):
+    def __init__(self, dir: str, prev_dir: str|None = None):
         self._dir = dir
         self._prev_dir = prev_dir
 
@@ -92,7 +92,7 @@ class PlaygroundRepository(Repository):
             if role not in ["timestamp", "snapshot"]:
                 raise ValueError(f"Cannot create new {role} metadata")
             if role == "timestamp":
-                md = Metadata(Timestamp())
+                md: Metadata = Metadata(Timestamp())
                 # workaround https://github.com/theupdateframework/python-tuf/issues/2307
                 md.signed.snapshot_meta.version = 0
             else:
@@ -295,13 +295,13 @@ class PlaygroundRepository(Repository):
         dst_path = os.path.join(metadata_dir, f"{snapshot.version}.snapshot.json")
         shutil.copy(os.path.join(self._dir, "snapshot.json"), dst_path)
 
-        for filename, metafile  in md.signed.meta.items():
+        for filename, metafile  in snapshot.meta.items():
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(metadata_dir, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
 
-            targets_md: Metadata[Targets] = self.open(filename[:-len(".json")])
-            for target in targets_md.signed.targets.values():
+            targets = self.targets(filename[:-len(".json")])
+            for target in targets.targets.values():
                 parent, sep, name = target.path.rpartition("/")
                 os.makedirs(os.path.join(targets_dir, parent), exist_ok=True)
                 src_path = os.path.join(self._dir, "..", "targets", parent, name)
