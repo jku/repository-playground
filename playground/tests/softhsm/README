@@ -1,0 +1,9 @@
+# Created with
+
+SOFTHSM2_CONF="softhsm2.conf"
+echo "directories.tokendir = tokens/" > $SOFTHSM2_CONF
+openssl genpkey -out eckey.pem -algorithm EC -pkeyopt ec_paramgen_curve:secp384r1 -pkeyopt ec_param_enc:named_curve
+softhsm2-util --init-token --slot 0 --label "mytoken" --so-pin 0000 --pin 0000
+softhsm2-util --import eckey.pem --token mytoken --label "mykey" --id 02 --pin 0000
+
+
