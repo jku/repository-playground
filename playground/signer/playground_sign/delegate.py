@@ -8,7 +8,7 @@ from urllib import parse
 import click
 import logging
 import os
-from securesystemslib.signer import GCPSigner, SigstoreKey, KEY_FOR_TYPE_AND_SCHEME
+from securesystemslib.signer import GCPSigner, SigstoreKey, SSlibKey, KEY_FOR_TYPE_AND_SCHEME
 
 from playground_sign._common import (
     get_signing_key_input,
@@ -131,7 +131,13 @@ def _get_online_input(
                 "Press enter to use Sigstore, or enter a Google Cloud KMS key id",
                 default=""
             )
-            if key_id == "":
+            if key_id == "LOCAL_TESTING_KEY":
+                # This could be generic support for env var keys... but for now is just for the one testing key
+                # the private key is 1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480
+                uri = "envvar:LOCAL_TESTING_KEY"
+                key = SSlibKey("fa47289", "ed25519", "ed25519", {"public": "fa472895c9756c2b9bcd1440bf867d0fa5c4edee79e9792fa9822be3dd6fcbb3"}, {"x-playground-online-uri": uri})
+                config.keys = [key]
+            elif key_id == "":
                 config.keys = _sigstore_import(user_config.pull_remote)
             else:
                 try:
