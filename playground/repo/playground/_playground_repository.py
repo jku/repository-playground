@@ -28,7 +28,7 @@ class SigningStatus:
     missing: set[str]
     threshold: int
     valid: bool
-    message: str
+    message: str | None
 
 class SigningEventState:
     """Class to manage the .signing-event-state file"""
@@ -55,7 +55,7 @@ class PlaygroundRepository(Repository):
         dir: metadata directory to operate on
         prev_dir: optional known good repository directory
     """
-    def __init__(self, dir: str, prev_dir: str = None):
+    def __init__(self, dir: str, prev_dir: str|None = None):
         self._dir = dir
         self._prev_dir = prev_dir
 
@@ -68,9 +68,9 @@ class PlaygroundRepository(Repository):
     def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
         if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.open("root").signed
+            delegator: Root|Targets = self.root()
         else:
-            delegator = self.open("targets").signed
+            delegator = self.targets()
 
         r = delegator.get_delegated_role(role)
         keys = []
@@ -92,7 +92,7 @@ class PlaygroundRepository(Repository):
             if role not in ["timestamp", "snapshot"]:
                 raise ValueError(f"Cannot create new {role} metadata")
             if role == "timestamp":
-                md = Metadata(Timestamp())
+                md: Metadata = Metadata(Timestamp())
                 # workaround https://github.com/theupdateframework/python-tuf/issues/2307
                 md.signed.snapshot_meta.version = 0
             else:
@@ -160,11 +160,11 @@ class PlaygroundRepository(Repository):
         # are then exposed
         targets_files: dict[str, MetaFile] = {}
 
-        md:Metadata[Targets] = self.open("targets")
-        targets_files["targets.json"] = MetaFile(md.signed.version)
-        if md.signed.delegations and md.signed.delegations.roles:
-            for role in md.signed.delegations.roles.values():
-                version = self.open(role.name).signed.version
+        targets = self.targets()
+        targets_files["targets.json"] = MetaFile(targets.version)
+        if targets.delegations and targets.delegations.roles:
+            for role in targets.delegations.roles.values():
+                version = self.targets(role.name).version
                 targets_files[f"{role.name}.json"] = MetaFile(version)
 
         return targets_files
@@ -175,8 +175,7 @@ class PlaygroundRepository(Repository):
 
         Called by timestamp() when it needs current snapshot version
         """
-        md = self.open("snapshot")
-        return MetaFile(md.signed.version)
+        return MetaFile(self.snapshot().version)
 
     def open_prev(self, role:str) -> Metadata | None:
         """Return known good metadata for role (if it exists)"""
@@ -292,17 +291,17 @@ class PlaygroundRepository(Repository):
             shutil.copy(src_path, metadata_dir)
         shutil.copy(os.path.join(self._dir, "timestamp.json"), metadata_dir)
 
-        md: Metadata[Snapshot] = self.open("snapshot")
-        dst_path = os.path.join(metadata_dir, f"{md.signed.version}.snapshot.json")
+        snapshot = self.snapshot()
+        dst_path = os.path.join(metadata_dir, f"{snapshot.version}.snapshot.json")
         shutil.copy(os.path.join(self._dir, "snapshot.json"), dst_path)
 
-        for filename, metafile  in md.signed.meta.items():
+        for filename, metafile  in snapshot.meta.items():
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(metadata_dir, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
 
-            targets_md: Metadata[Targets] = self.open(filename[:-len(".json")])
-            for target in targets_md.signed.targets.values():
+            targets = self.targets(filename[:-len(".json")])
+            for target in targets.targets.values():
                 parent, sep, name = target.path.rpartition("/")
                 os.makedirs(os.path.join(targets_dir, parent), exist_ok=True)
                 src_path = os.path.join(self._dir, "..", "targets", parent, name)

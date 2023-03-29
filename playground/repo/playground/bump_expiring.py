@@ -40,7 +40,7 @@ def bump_online(verbose: int, push: bool, publish_dir: str|None) -> None:
     snapshot_version = repo.bump_expiring("snapshot")
     if snapshot_version is not None:
         # if snapshot changes, we need to actually update timestamp content
-        _, meta = repo.timestamp()
+        _, meta = repo.do_timestamp()
         assert meta
         timestamp_version = meta.version
         msg += f"snapshot v{snapshot_version}, timestamp v{timestamp_version}."
