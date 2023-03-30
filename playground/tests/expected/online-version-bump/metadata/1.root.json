@@ -2,7 +2,7 @@
  "signatures": [
   {
    "keyid": "e5af3a6acb5a64a72f6caf96679b5e89f26aeb79d7537ac59fe9655dae5bb55d",
-   "sig": ""
+   "sig": "XXX"
   }
  ],
  "signed": {
@@ -39,7 +39,7 @@
      "fa47289"
     ],
     "threshold": 1,
-    "x-playground-expiry-period": 0
+    "x-playground-expiry-period": 10
    },
    "targets": {
     "keyids": [

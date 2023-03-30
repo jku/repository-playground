@@ -6,14 +6,14 @@
   }
  ],
  "signed": {
-  "_type": "timestamp",
-  "expires": "2021-02-17T01:02:03Z",
+  "_type": "snapshot",
+  "expires": "2021-02-24T01:02:03Z",
   "meta": {
-   "snapshot.json": {
-    "version": 2
+   "targets.json": {
+    "version": 1
    }
   },
   "spec_version": "1.0.31",
-  "version": 3
+  "version": 2
  }
 }
