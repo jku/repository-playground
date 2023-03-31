@@ -420,10 +420,18 @@ class SignerRepository(Repository):
 
         # Handle new invitations
         for signer in config.signers:
-            if signer not in self._invites:
-                self._invites[signer] = []
-            if rolename not in self._invites[signer]:
-                self._invites[signer].append(rolename)
+            # Find signers key
+            is_signer = False
+            for key in self._get_keys(rolename):
+                if signer == key.unrecognized_fields["x-playground-keyowner"]:
+                    is_signer = True
+
+            # If signer does not have key, add invitation
+            if not is_signer:
+                if signer not in self._invites:
+                    self._invites[signer] = []
+                if rolename not in self._invites[signer]:
+                    self._invites[signer].append(rolename)
 
         if rolename in ["root", "targets"]:
             delegator_cm = self.edit_root()
