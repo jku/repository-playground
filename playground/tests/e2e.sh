@@ -312,7 +312,9 @@ test_basic()
     setup_test "basic"
 
     # Run the processes under test
+    # user1: Start signing event, sign root and targets
     signer_init user1 sign/initial
+    # merge successful signing event, create snapshot
     repo_merge sign/initial
     repo_snapshot
     repo_bump_versions # no-op expected
@@ -332,14 +334,17 @@ test_online_bumps()
     setup_test "online-version-bump"
 
     # Run the processes under test
+    # user1: Start signing event, set snapshot expiry at 10 days, sign root and targets
     signer_init_shorter_snapshot_expiry user1 sign/initial
+    # merge successful signing event, create snapshot
     repo_merge sign/initial
     repo_snapshot
+    # run three version bumps
     repo_bump_versions # no-op expected
-    FAKETIME="2021-02-14 01:02:03" # update time: snapshot v2 and timestamp v2 expected
-    repo_bump_versions
-    FAKETIME="2021-02-16 01:02:03" # update time: timestamp v3 expected
-    repo_bump_versions
+    FAKETIME="2021-02-14 01:02:03"
+    repo_bump_versions # 11 days forward: snapshot v2 and timestamp v2 expected
+    FAKETIME="2021-02-16 01:02:03"
+    repo_bump_versions # 2 more days forward: timestamp v3 expected
     FAKETIME="2021-02-03 01:02:03"
 
     # Verify test result
@@ -357,11 +362,15 @@ test_multi_user_signing()
     setup_test "multi-user-signing"
 
     # Run the processes under test
+    # user1: Start signing event, invite user2
     signer_init_multiuser user1 sign/initial
     repo_status_fail sign/initial
+    # user2: accept invite, sign root & targets
     signer_accept_invite user2 sign/initial
     repo_status_fail sign/initial
+    # user1: sign root & targets
     signer_sign user1 sign/initial
+    # merge successful signing event, create new snapshot
     repo_merge sign/initial
     repo_snapshot
 
