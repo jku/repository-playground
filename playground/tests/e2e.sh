@@ -57,7 +57,7 @@ git_repo()
 repo_setup()
 {
     # init upstream repo
-    git -C $UPSTREAM_GIT init --quiet --bare
+    git -C $UPSTREAM_GIT init --quiet --bare --initial-branch=main
 
     # Clone upstream to repo, create a dummy commit so merges are possible
     git_repo clone --quiet $UPSTREAM_GIT . 2>/dev/null
