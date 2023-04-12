@@ -81,6 +81,8 @@ signer_setup()
 
     # clone the test repository
     git -C $SIGNER_GIT clone --quiet $UPSTREAM_GIT .
+    git -C $SIGNER_GIT config user.email "$USER@example.com"
+    git -C $SIGNER_GIT config user.name "$USER"
 
     # Set user configuration
     echo -e "[settings]\n" \
