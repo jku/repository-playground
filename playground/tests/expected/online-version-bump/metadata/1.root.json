@@ -1,7 +1,7 @@
 {
  "signatures": [
   {
-   "keyid": "e5af3a6acb5a64a72f6caf96679b5e89f26aeb79d7537ac59fe9655dae5bb55d",
+   "keyid": "95da323daa78f7b2557ae91e23be619ff932f9aec035abd4e40301405b363999",
    "sig": "XXX"
   }
  ],
@@ -10,7 +10,7 @@
   "consistent_snapshot": true,
   "expires": "2022-02-03T01:02:03Z",
   "keys": {
-   "e5af3a6acb5a64a72f6caf96679b5e89f26aeb79d7537ac59fe9655dae5bb55d": {
+   "95da323daa78f7b2557ae91e23be619ff932f9aec035abd4e40301405b363999": {
     "keytype": "ecdsa",
     "keyval": {
      "public": "-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEJ3pswWmx9Bx2VBcpqaooQFA7dQnhRafh\ntj942eg086x6EMHdfgdox9TbwGm7sU2sn/gyjyDr1ez8Ld2ORnyYJ8cAlegfTqNq\nE0eSrLrb+YpzQJxLwh6qWcSngF99Unft\n-----END PUBLIC KEY-----\n"
@@ -30,7 +30,7 @@
   "roles": {
    "root": {
     "keyids": [
-     "e5af3a6acb5a64a72f6caf96679b5e89f26aeb79d7537ac59fe9655dae5bb55d"
+     "95da323daa78f7b2557ae91e23be619ff932f9aec035abd4e40301405b363999"
     ],
     "threshold": 1
    },
@@ -43,7 +43,7 @@
    },
    "targets": {
     "keyids": [
-     "e5af3a6acb5a64a72f6caf96679b5e89f26aeb79d7537ac59fe9655dae5bb55d"
+     "95da323daa78f7b2557ae91e23be619ff932f9aec035abd4e40301405b363999"
     ],
     "threshold": 1
    },
