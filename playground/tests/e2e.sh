@@ -6,6 +6,11 @@
 # * Hardware signing
 # * Online signing
 #
+# Dependencies
+# * libfaketime
+# * softhsm2
+# * signer and repo installed (pip install playground/repo/ playground/signer/)
+#
 #
 # Set DEBUG_TESTS=1 for more visibility. This will leave the temp directories in place.
 # The directory contents will be as below:
@@ -27,6 +32,10 @@ function cleanup {
     EXIT_CODE=$?
     if [ -v DEBUG_TESTS ]; then
         ls $WORK_DIR
+        echo "signer STDOUT:"
+        sed 's/^/| /' $SIGNER_DIR/out || true
+        echo "repo STDOUT:"
+        sed 's/^/| /' $REPO_DIR/out || true
     else
         rm -rf "$WORK_DIR"
     fi
