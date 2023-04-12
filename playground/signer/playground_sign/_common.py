@@ -31,6 +31,13 @@ class SignerConfig:
             raise click.ClickException(f"Failed to find required setting {e} in {path}")
 
 
+class Secret():
+    """Class for click input (the default show_input=False does not work with test data from stdin)"""
+    def __init__(self, secret=''):
+        self.secret = secret
+    def __str__(self):
+        return '*' * len(self.secret)
+
 @contextmanager
 def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository, None, None]:
     toplevel = git(["rev-parse", "--show-toplevel"])
@@ -77,13 +84,21 @@ def get_signing_key_input(message: str) -> Key:
 
 def get_secret_input(secret: str, role: str) -> str:
     msg = f"Enter {secret} to sign {role}"
-    return click.prompt(msg, hide_input=True, show_default=False)
+    return click.prompt(msg, type=Secret).secret
 
 
 def git(cmd: list[str]) -> str:
     cmd = ["git"] + cmd
     proc = subprocess.run(cmd, capture_output=True, check=True, text=True)
     return proc.stdout.strip()
+
+def git_expect(cmd: list[str]) -> str:
+    """Run git, expect success"""
+    try:
+        return git(cmd)
+    except subprocess.CalledProcessError as e:
+        print(f"git failure:\n{e.stderr}")
+        raise
 
 def git_echo(cmd: list[str]):
     cmd = ["git"] + cmd
