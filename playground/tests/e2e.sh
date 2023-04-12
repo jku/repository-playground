@@ -6,10 +6,14 @@
 # * Hardware signing
 # * Online signing
 #
-# Dependencies
+# System dependencies
 # * libfaketime
 # * softhsm2
-# * signer and repo installed (pip install playground/repo/ playground/signer/)
+#
+# Python dependencies
+# * signer: pip install ./playground/signer/
+# * repo: pip install ./playground/repo/
+# * pynacl: pip install pynacl  # for the testing ed25519 key
 #
 #
 # Set DEBUG_TESTS=1 for more visibility. This will leave the temp directories in place.

@@ -25,10 +25,17 @@ jobs:
     - name: Install Python dependencies
       run: |
         # TODO install repo and signer in separate environments
-        python -m pip install playground/repo/
-        python -m pip install playground/signer/
+        python -m pip install pynacl
+        python -m pip install pynacl ./playground/repo/
+        python -m pip install pynacl ./playground/signer/
 
     - name: Run tests
+      run: |
+        cd playground/tests
+        ./e2e.sh
+
+    - name: Run tests with DEBUG_TESTS
+      if: failure()
       run: |
         cd playground/tests
         DEBUG_TESTS=1 ./e2e.sh
