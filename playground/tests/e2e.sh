@@ -36,10 +36,12 @@ function cleanup {
     EXIT_CODE=$?
     if [ -v DEBUG_TESTS ]; then
         ls $WORK_DIR
-        echo "signer STDOUT:"
-        sed 's/^/| /' $SIGNER_DIR/out || true
-        echo "repo STDOUT:"
-        sed 's/^/| /' $REPO_DIR/out || true
+        if [[ $EXIT_CODE -ne 0 ]]; then
+          echo "signer STDOUT:"
+          sed 's/^/| /' $SIGNER_DIR/out || true
+          echo "repo STDOUT:"
+          sed 's/^/| /' $REPO_DIR/out || true
+        fi
     else
         rm -rf "$WORK_DIR"
     fi
