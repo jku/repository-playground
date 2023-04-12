@@ -87,12 +87,18 @@ def get_secret_input(secret: str, role: str) -> str:
     return click.prompt(msg, type=Secret).secret
 
 
-
-
 def git(cmd: list[str]) -> str:
     cmd = ["git"] + cmd
     proc = subprocess.run(cmd, capture_output=True, check=True, text=True)
     return proc.stdout.strip()
+
+def git_expect(cmd: list[str]) -> str:
+    """Run git, expect success"""
+    try:
+        return git(cmd)
+    except subprocess.CalledProcessError as e:
+        print(f"git failure:\n{e.stderr}")
+        raise
 
 def git_echo(cmd: list[str]):
     cmd = ["git"] + cmd

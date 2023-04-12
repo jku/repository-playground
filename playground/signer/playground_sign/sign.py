@@ -8,7 +8,7 @@ import os
 
 from playground_sign._common import (
     get_signing_key_input,
-    git,
+    git_expect,
     git_echo,
     SignerConfig,
     signing_event,
@@ -25,7 +25,7 @@ def sign(verbose: int, push: bool, event_name: str):
     """Signing tool for Repository Playground signing events."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    toplevel = git(["rev-parse", "--show-toplevel"])
+    toplevel = git_expect(["rev-parse", "--show-toplevel"])
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
     user_config = SignerConfig(settings_path)
 
@@ -73,9 +73,9 @@ def sign(verbose: int, push: bool, event_name: str):
                     parent, _, name = target_state.target.path.rpartition("/")
                     path = os.path.join("targets", parent, name)
                     if target_state.state == State.REMOVED:
-                        git(["rm", "--", path])
+                        git_expect(["rm", "--", path])
                     else:
-                        git(["add", "--", path])
+                        git_expect(["add", "--", path])
 
             changed = True
         elif repo.state == SignerState.NO_ACTION:
@@ -84,8 +84,8 @@ def sign(verbose: int, push: bool, event_name: str):
             raise NotImplementedError
 
         if changed:
-            git(["add", "metadata"])
-            git(["commit", "-m", f"Signed by {user_config.user_name}"])
+            git_expect(["add", "metadata"])
+            git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
             if push:
                 msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
@@ -93,6 +93,6 @@ def sign(verbose: int, push: bool, event_name: str):
             else:
                 # TODO: maybe deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")
-                git(["branch", event_name])
+                git_expect(["branch", event_name])
         else:
             click.echo("Nothing to do.")

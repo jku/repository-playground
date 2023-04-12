@@ -12,7 +12,7 @@ from securesystemslib.signer import GCPSigner, SigstoreKey, SSlibKey, KEY_FOR_TY
 
 from playground_sign._common import (
     get_signing_key_input,
-    git,
+    git_expect,
     git_echo,
     SignerConfig,
     signing_event,
@@ -85,7 +85,7 @@ def _get_offline_input(
     return config
 
 def _get_repo_name(remote: str):
-    url = parse.urlparse(git(["config", "--get", f"remote.{remote}.url"]))
+    url = parse.urlparse(git_expect(["config", "--get", f"remote.{remote}.url"]))
     repo = url.path[:-len(".git")]
     # ssh-urls are relative URLs according to urllib: host is actually part of
     # path. We don't want the host part:
@@ -223,7 +223,7 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
     """Tool for modifying Repository Playground delegations."""
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    toplevel = git(["rev-parse", "--show-toplevel"])
+    toplevel = git_expect(["rev-parse", "--show-toplevel"])
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
     user_config = SignerConfig(settings_path)
 
@@ -240,12 +240,12 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
                 changed =  _update_offline_role(repo, role)
 
         if changed:
-            git(["add", "metadata/"])
+            git_expect(["add", "metadata/"])
             if role:
                 msg = f"'{role}' role/delegation change"
             else:
                 msg = "Initial offline metadata"
-            git(["commit", "-m", msg, "--", "metadata"])
+            git_expect(["commit", "-m", msg, "--", "metadata"])
             if push:
                 msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
                 click.prompt(msg, default=True, show_default=False)
@@ -253,6 +253,6 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
             else:
                 # TODO: deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")
-                git(["branch", event_name])
+                git_expect(["branch", event_name])
         else:
             click.echo("Nothing to do")
