@@ -48,19 +48,19 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
         os.environ["PYKCS11LIB"] = config.pykcs11lib
 
     # first, make sure we're up-to-date
-    git(["fetch", config.pull_remote])
+    git_expect(["fetch", config.pull_remote])
     try:
         git(["checkout", f"{config.pull_remote}/{name}"])
     except subprocess.CalledProcessError:
         click.echo("Remote branch not found: branching off from main")
-        git(["checkout", f"{config.pull_remote}/main"])
+        git_expect(["checkout", f"{config.pull_remote}/main"])
 
     try:
         # checkout the base of this signing event in another directory
         with TemporaryDirectory() as temp_dir:
-            base_sha = git(["merge-base", f"{config.pull_remote}/main", "HEAD"])
-            git(["clone", "--quiet", toplevel, temp_dir])
-            git(["-C", temp_dir, "checkout", "--quiet", base_sha])
+            base_sha = git_expect(["merge-base", f"{config.pull_remote}/main", "HEAD"])
+            git_expect(["clone", "--quiet", toplevel, temp_dir])
+            git_expect(["-C", temp_dir, "checkout", "--quiet", base_sha])
             base_metadata_dir = os.path.join(temp_dir, "metadata")
             metadata_dir = os.path.join(toplevel, "metadata")
 
@@ -68,7 +68,7 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
             yield repo
     finally:
         # go back to original branch
-        git(["checkout", "-"])
+        git_expect(["checkout", "-"])
 
 
 def get_signing_key_input(message: str) -> Key:
