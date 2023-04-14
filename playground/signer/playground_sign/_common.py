@@ -6,6 +6,7 @@ from configparser import ConfigParser
 from contextlib import contextmanager
 import os
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from typing import Generator
 import click
@@ -30,13 +31,6 @@ class SignerConfig:
         except KeyError as e:
             raise click.ClickException(f"Failed to find required setting {e} in {path}")
 
-
-class Secret():
-    """Class for click input (the default show_input=False does not work with test data from stdin)"""
-    def __init__(self, secret=''):
-        self.secret = secret
-    def __str__(self):
-        return '*' * len(self.secret)
 
 @contextmanager
 def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository, None, None]:
@@ -84,7 +78,12 @@ def get_signing_key_input(message: str) -> Key:
 
 def get_secret_input(secret: str, role: str) -> str:
     msg = f"Enter {secret} to sign {role}"
-    return click.prompt(msg, type=Secret).secret
+
+    # special case for tests -- prompt() will lockup trying to hide STDIN:
+    if not sys.stdin.isatty():
+        return sys.stdin.readline().rstrip()
+
+    return click.prompt(msg, hide_input=True)
 
 
 def git(cmd: list[str]) -> str:
