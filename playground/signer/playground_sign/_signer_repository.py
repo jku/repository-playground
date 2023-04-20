@@ -134,6 +134,7 @@ class SignerRepository(Repository):
         self._prev_dir = prev_dir
         self._get_secret = secret_func
         self._invites: dict[str, list[str]] = {}
+        self._signers: dict[str, Signer] = {}
 
         # read signing event state file (invites)
         state_file = os.path.join(self._dir, ".signing-event-state")
@@ -248,11 +249,15 @@ class SignerRepository(Repository):
         def secret_handler(secret: str) -> str:
             return self._get_secret(secret, role)
 
-        # TODO Get key uri from .playground-sign.ini, avoid if-else here
-        if key.keytype == "sigstore-oidc":
-            signer = Signer.from_priv_key_uri("sigstore:?ambient=false", key, secret_handler)
-        else:
-            signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+        if key.keyid not in self._signers:
+            # TODO Get key uri from .playground-sign.ini, avoid if-else here
+            if key.keytype == "sigstore-oidc":
+                self._signers[key.keyid] = Signer.from_priv_key_uri("sigstore:?ambient=false", key, secret_handler)
+            else:
+                self._signers[key.keyid] = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+
+        signer = self._signers[key.keyid]
+
         while True:
             try:
                 md.sign(signer, True)
