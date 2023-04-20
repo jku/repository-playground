@@ -175,7 +175,7 @@ def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
 
     key = None
     if repo.user_name in root_config.signers or repo.user_name in targets_config.signers:
-        key = get_signing_key_input("Insert your HW key and press enter")
+        key = get_signing_key_input()
 
     repo.set_role_config("root", root_config, key)
     repo.set_role_config("targets", targets_config, key)
@@ -208,7 +208,7 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
     key = None
     if repo.user_name in new_config.signers:
-        key = get_signing_key_input("Insert your HW key and press enter")
+        key = get_signing_key_input()
 
     repo.set_role_config(role, new_config, key)
     return True
