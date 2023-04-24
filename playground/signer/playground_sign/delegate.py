@@ -11,6 +11,7 @@ import os
 from securesystemslib.signer import GCPSigner, SigstoreKey, SSlibKey, KEY_FOR_TYPE_AND_SCHEME
 
 from playground_sign._common import (
+    bold,
     get_signing_key_input,
     git_expect,
     git_echo,
@@ -38,10 +39,12 @@ def _get_offline_input(
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring role {role}")
     while True:
-        choice = click.prompt(
+        click.echo(
             f" 1. Configure signers: [{', '.join(config.signers)}], requiring {config.threshold} signatures\n"
-            f" 2. Configure expiry: Role expires in {config.expiry_period} days, re-signing starts {config.signing_period} days before expiry\n"
-            "Please choose an option or press enter to continue",
+            f" 2. Configure expiry: Role expires in {config.expiry_period} days, re-signing starts {config.signing_period} days before expiry"
+        )
+        choice = click.prompt(
+            bold("Please choose an option or press enter to continue"),
             type=click.IntRange(0, 2),
             default=0,
             show_default=False,
@@ -51,7 +54,7 @@ def _get_offline_input(
         if choice == 1:
             # TODO use value_proc argument to validate the input
             response = click.prompt(
-                f"Please enter list of {role} signers",
+                bold(f"Please enter list of {role} signers"),
                 default=", ".join(config.signers)
             )
             config.signers.clear()
@@ -66,18 +69,18 @@ def _get_offline_input(
             else:
                 # TODO use value_proc argument to validate threshold is [1-len(new_signers)]
                 config.threshold = click.prompt(
-                    f"Please enter {role} threshold",
+                    bold(f"Please enter {role} threshold"),
                     type=int,
                     default=config.threshold
                 )
         elif choice == 2:
             config.expiry_period = click.prompt(
-                f"Please enter {role} expiry period in days",
+                bold(f"Please enter {role} expiry period in days"),
                 type=int,
                 default=config.expiry_period,
             )
             config.signing_period = click.prompt(
-                f"Please enter {role} signing period in days",
+                bold(f"Please enter {role} signing period in days"),
                 type=int,
                 default=config.signing_period,
             )
@@ -114,11 +117,13 @@ def _get_online_input(
     click.echo(f"\nConfiguring online roles")
     while True:
         keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
-        choice = click.prompt(
+        click.echo(
             f" 1. Configure online key: {keyuri}\n"
             f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
-            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days\n"
-            "Please choose an option or press enter to continue",
+            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days"
+        )
+        choice = click.prompt(
+            bold("Please choose an option or press enter to continue"),
             type=click.IntRange(0, 3),
             default=0,
             show_default=False,
@@ -128,7 +133,7 @@ def _get_online_input(
         if choice == 1:
             # TODO use value_proc argument to validate the input
             key_id = click.prompt(
-                "Press enter to use Sigstore, or enter a Google Cloud KMS key id",
+                bold("Press enter to use Sigstore, or enter a Google Cloud KMS key id"),
                 default=""
             )
             if key_id == "LOCAL_TESTING_KEY":
@@ -148,13 +153,13 @@ def _get_online_input(
                     raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
         if choice == 2:
             config.timestamp_expiry = click.prompt(
-                f"Please enter timestamp expiry in days",
+                bold(f"Please enter timestamp expiry in days"),
                 type=int,
                 default=config.timestamp_expiry,
             )
         if choice == 3:
             config.snapshot_expiry = click.prompt(
-                f"Please enter snapshot expiry in days",
+                bold(f"Please enter snapshot expiry in days"),
                 type=int,
                 default=config.snapshot_expiry,
             )
@@ -232,7 +237,7 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
             changed = _init_repository(repo, user_config)
         else:
             if role is None:
-                role = click.prompt("Enter name of role to modify")
+                role = click.prompt(bold("Enter name of role to modify"))
 
             if role in ["timestamp", "snapshot"]:
                 changed = _update_online_roles(repo, user_config)
@@ -248,7 +253,7 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
             git_expect(["commit", "-m", msg, "--", "metadata"])
             if push:
                 msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
-                click.prompt(msg, default=True, show_default=False)
+                click.prompt(bold(msg), default=True, show_default=False)
                 git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
             else:
                 # TODO: deal with existing branch?
