@@ -2,7 +2,7 @@
 
 This document describes a goal: current functionality is not quite the same yet:
 as an example, git pushes/pulls are not yet handled by the tool. Currently the 
-functionality is also split into playground-signer and playground-delegte. 
+functionality is also split into playground-signer and playground-delegate.
 
 ## Signer tool Commands
 
@@ -96,7 +96,7 @@ A) make it clear it's custom and B) make collisions unlikely.
   * used by repo to decide when to start a signing event
   * used by tool to bump version
 
-In addition to signed metadata, the following data is commited to git during the signing event (but is
+In addition to signed metadata, the following data is committed to git during the signing event (but is
 not part of the actual signed repository):
 * invitations 
   * set by signer tool

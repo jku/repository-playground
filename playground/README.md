@@ -8,7 +8,7 @@ Supported features include:
 * No custom code required
 
 The optimal use case (at least to begin with) is TUF repositories with a low
-to moderate frequency of change, both for target target files and keys.
+to moderate frequency of change, both for target files and keys.
 
 This is a Work-In-Progress: any code should be seen as experimental for now. See [example](https://github.com/jku/test-repo-for-playground/) for an instance running repository-playground.
 
@@ -58,7 +58,7 @@ Whenever you run signing tools, you need a configuration file `.playground-sign.
 ### Setup a new Playground repository
 
 1. Fork the [template](https://github.com/jku/playground-template).
-1. To enable repository publishing, set _Settings->Pages->Source to `Github Actions`
+1. To enable repository publishing, set _Settings->Pages->Source_ to `Github Actions`
 
 #### Using a KMS
 
@@ -84,7 +84,7 @@ and you know its name but in some cases (delegation, target modification) you ca
 a name for a new signing event: anything starting with "sign/" is fine.
 
 The tools will fetch the current signing event content from a matching branch in
-_pull-remote_. After signing or delegatation changes, the tools will push the changes
+_pull-remote_. After signing or delegation changes, the tools will push the changes
 to matching branch on _push-remote_.
 
 Notes on remotes configured in `.playground-sign.ini`:
@@ -160,8 +160,8 @@ See [repo/](repo/), See [actions/](actions/)
 ### signing tool
 
 Status:
-* playground-delegate mostly implented
-* playground-sign mostly implemented, althought output is a work in progress
+* playground-delegate mostly implemented
+* playground-sign mostly implemented, although output is a work in progress
 
 See [signer/](signer/)
 
