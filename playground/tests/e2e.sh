@@ -114,6 +114,7 @@ signer_init()
         "1"                 # Configure online roles? [1: configure key]
         "LOCAL_TESTING_KEY" # Enter key id
         ""                  # Configure online roles? [enter to continue]
+        "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign root
         "0000"              # sign root
@@ -147,6 +148,7 @@ signer_init_shorter_snapshot_expiry()
         "3"                 # Configure online roles? [3: configure snapshot]
         "10"                 # Enter expiry [10 days]
         ""                  # Configure online roles? [enter to continue]
+        "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign root
         "0000"              # sign root
@@ -184,6 +186,7 @@ signer_init_multiuser()
         "1"                 # Configure online roles? [1: configure key]
         "LOCAL_TESTING_KEY" # Enter key id
         ""                  # Configure online roles? [enter to continue]
+        "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign targets
         ""                  # press enter to push
@@ -207,6 +210,7 @@ signer_accept_invite()
     export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
 
     INPUT=(
+        "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW and press enter
         "0000"              # sign targets
         "0000"              # sign targets

@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Generator
 import click
 
-from securesystemslib.signer import HSMSigner, Key
+from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
 
 from playground_sign._signer_repository import SignerRepository
 
@@ -65,13 +65,46 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
         git_expect(["checkout", "-"])
 
 
-def get_signing_key_input(message: str) -> Key:
-    # TODO use value_proc argument to validate the input
-    click.prompt(message, default=True, show_default=False)
-    try:
-        _, key = HSMSigner.import_()
-    except Exception as e:
-        raise click.ClickException(f"Failed to read HW key: {e}")
+def get_signing_key_input() -> Key:
+    click.echo(
+        "\nConfiguring signing key\n"
+        " 1. Sigstore (OpenID Connect)\n"
+        " 2. Yubikey"
+    )
+    choice = click.prompt(
+        bold("Please choose the type of signing key you would like to use"),
+        type=click.IntRange(1,2),
+        default=1,
+    )
+
+    if choice == 1:
+        identity = click.prompt(bold("Please enter your email address"))
+        click.echo(
+            f" 1. GitHub\n"
+            f" 2. Google\n"
+            f" 3. Microsoft"
+        )
+        issuer_id = click.prompt(
+            bold("Please choose the identity issuer"),
+            type=click.IntRange(1,3),
+            default=1,
+        )
+        if issuer_id == 1:
+            issuer = "https://github.com/login/oauth"
+        elif issuer_id == 2:
+            issuer = "https://accounts.google.com"
+        else:
+            issuer = "https://login.microsoftonline.com"
+        try:
+            _, key = SigstoreSigner.import_(identity, issuer, ambient=False)
+        except Exception as e:
+            raise click.ClickException(f"Failed to create Sigstore key: {e}")
+    else:
+        click.prompt(bold("Please insert your Yubikey and press enter"), default=True, show_default=False)
+        try:
+            _, key = HSMSigner.import_()
+        except Exception as e:
+            raise click.ClickException(f"Failed to read HW key: {e}")
 
     return key
 
@@ -83,7 +116,7 @@ def get_secret_input(secret: str, role: str) -> str:
     if not sys.stdin.isatty():
         return sys.stdin.readline().rstrip()
 
-    return click.prompt(msg, hide_input=True)
+    return click.prompt(bold(msg), hide_input=True)
 
 
 def git(cmd: list[str]) -> str:
@@ -102,3 +135,6 @@ def git_expect(cmd: list[str]) -> str:
 def git_echo(cmd: list[str]):
     cmd = ["git"] + cmd
     subprocess.run(cmd, check=True, text=True)
+
+def bold(text: str) -> str:
+    return click.style(text, bold=True)

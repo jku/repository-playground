@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Callable
 from securesystemslib.exceptions import UnverifiedSignatureError
-from securesystemslib.signer import Signature, Signer
+from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME, SIGNER_FOR_URI_SCHEME
 
 from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Root, TargetFile, Targets
@@ -22,6 +22,10 @@ from tuf.repository import Repository, AbortEdit
 
 
 logger = logging.getLogger(__name__)
+
+KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
+SIGNER_FOR_URI_SCHEME[SigstoreSigner.SCHEME] = SigstoreSigner
+
 
 @unique
 class SignerState(Enum):
@@ -130,6 +134,7 @@ class SignerRepository(Repository):
         self._prev_dir = prev_dir
         self._get_secret = secret_func
         self._invites: dict[str, list[str]] = {}
+        self._signers: dict[str, Signer] = {}
 
         # read signing event state file (invites)
         state_file = os.path.join(self._dir, ".signing-event-state")
@@ -244,14 +249,21 @@ class SignerRepository(Repository):
         def secret_handler(secret: str) -> str:
             return self._get_secret(secret, role)
 
-        signer = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+        if key.keyid not in self._signers:
+            # TODO Get key uri from .playground-sign.ini, avoid if-else here
+            if key.keytype == "sigstore-oidc":
+                self._signers[key.keyid] = Signer.from_priv_key_uri("sigstore:?ambient=false", key, secret_handler)
+            else:
+                self._signers[key.keyid] = Signer.from_priv_key_uri("hsm:", key, secret_handler)
+
+        signer = self._signers[key.keyid]
+
         while True:
             try:
                 md.sign(signer, True)
                 break
             except UnsignedMetadataError:
                 print(f"Failed to sign {role} with {self.user_name} key. Try again?")
-
 
     def _write(self, role: str, md: Metadata) -> None:
         filename = self._get_filename(role)

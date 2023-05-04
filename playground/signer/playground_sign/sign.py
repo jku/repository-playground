@@ -7,6 +7,7 @@ import logging
 import os
 
 from playground_sign._common import (
+    bold,
     get_signing_key_input,
     git_expect,
     git_echo,
@@ -35,7 +36,7 @@ def sign(verbose: int, push: bool, event_name: str):
             changed = False
         elif repo.state == SignerState.INVITED:
             click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
-            key = get_signing_key_input("To accept the invitation, please insert your HW key and press enter")
+            key = get_signing_key_input()
             for rolename in repo.invites.copy():
                 # Modify the delegation
                 role_config = repo.get_role_config(rolename)
@@ -64,7 +65,7 @@ def sign(verbose: int, push: bool, event_name: str):
             for rolename, states in repo.target_changes.items():
                 for target_state in states.values():
                     click.echo(f"  {target_state.target.path} ({target_state.state.name})")
-            click.prompt("Press enter to approve these changes", default=True, show_default=False)
+            click.prompt(bold("Press enter to approve these changes"), default=True, show_default=False)
 
             repo.update_targets()
 
@@ -88,7 +89,7 @@ def sign(verbose: int, push: bool, event_name: str):
             git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
             if push:
                 msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
-                click.prompt(msg, default=True, show_default=False)
+                click.prompt(bold(msg), default=True, show_default=False)
                 git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
             else:
                 # TODO: maybe deal with existing branch?
