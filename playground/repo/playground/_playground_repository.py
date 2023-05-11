@@ -115,19 +115,13 @@ class PlaygroundRepository(Repository):
         """
         if rolename in ["timestamp", "snapshot"]:
             root_md:Metadata[Root] = self.open("root")
-            role = root_md.signed.roles[rolename]
-            expiry_days = role.unrecognized_fields["x-playground-expiry-period"]
-            # Add a try with 1/2 expiry days
-            try:
-                signing_days = role.unrecognized_fields["x-playground-signing-period"]
-            except KeyError:
-                signing_days = int(expiry_days / 2)
-        else:
-            expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
-            try:
-                signing_days = md.unrecognized_fields["x-playground-signing-period"]
-            except KeyError:
-                signing_days = int(expiry_days / 2)
+            md = root_md.signed.roles[rolename]
+
+        expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
+        try:
+            signing_days = md.unrecognized_fields["x-playground-signing-period"]
+        except KeyError:
+            signing_days = int(expiry_days / 2)
 
         return (signing_days, expiry_days)
 
