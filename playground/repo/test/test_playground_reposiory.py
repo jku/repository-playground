@@ -2,12 +2,6 @@ import unittest, shutil, tempfile
 from playground._playground_repository import PlaygroundRepository
 
 class TestPlaygroundRepository(unittest.TestCase):
-    def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.test_dir)
-
     def test_non_existing_repo(self):
         repo = PlaygroundRepository("/tmp/no_such_file")
         self.assertRaises(ValueError, repo.open, "root")
