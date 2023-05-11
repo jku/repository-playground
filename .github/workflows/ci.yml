@@ -34,6 +34,11 @@ jobs:
         cd playground/tests
         ./e2e.sh
 
+    - name: Run Playground unit tests
+      run: |
+        cd playground/repo
+        python -m unittest
+
     - name: Run tests with DEBUG_TESTS
       if: failure()
       run: |
