@@ -16,7 +16,7 @@ class TestPlaygroundRepository(unittest.TestCase):
         repo = PlaygroundRepository("test/test_repo1")
         root = repo.open("root")
 
-        signing_days, expiry_days = repo.signing_expiry_period("root", root)
+        signing_days, expiry_days = repo.signing_expiry_period("root", root.signed)
         self.assertEqual(signing_days, 60)
         self.assertEqual(expiry_days, 365)
 

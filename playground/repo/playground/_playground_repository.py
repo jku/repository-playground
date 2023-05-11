@@ -123,9 +123,9 @@ class PlaygroundRepository(Repository):
             except KeyError:
                 signing_days = int(expiry_days / 2)
         else:
-            expiry_days = md.signed.unrecognized_fields["x-playground-expiry-period"]
+            expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
             try:
-                signing_days = md.signed.unrecognized_fields["x-playground-signing-period"]
+                signing_days = md.unrecognized_fields["x-playground-signing-period"]
             except KeyError:
                 signing_days = int(expiry_days / 2)
 
@@ -139,7 +139,7 @@ class PlaygroundRepository(Repository):
         """
         md.signed.version += 1
 
-        _, expiry_days = self.signing_expiry_period(rolename, md)
+        _, expiry_days = self.signing_expiry_period(rolename, md.signed)
 
         md.signed.expires = datetime.utcnow() + timedelta(days=expiry_days)
 
