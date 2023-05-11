@@ -158,6 +158,7 @@ class PlaygroundRepository(Repository):
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
         if rolename in ["timestamp", "snapshot"]:
+            root_md:Metadata[Root] = self.open("root")
             # repository should never write unsigned online roles
             root_md.verify_delegate(rolename, md)
 
