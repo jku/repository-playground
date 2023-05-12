@@ -123,6 +123,8 @@ class PlaygroundRepository(Repository):
 
         expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
         try:
+            # For now set the signing period automatically if not set.
+            # For a future release this can be made mandatory.
             signing_days = md.unrecognized_fields["x-playground-signing-period"]
         except KeyError:
             signing_days = int(expiry_days / 2)
