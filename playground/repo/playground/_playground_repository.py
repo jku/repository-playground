@@ -108,14 +108,18 @@ class PlaygroundRepository(Repository):
         return md
 
 
-    def signing_expiry_period(self, rolename: str, md: Metadata) -> tuple[int, int]:
+    def signing_expiry_period(self, rolename: str) -> tuple[int, int]:
         """Extracts the signing and expiry period for a role
 
         If no signing expiry is configured, half the expiry period is used.
         """
+        root_md:Metadata[Root] = self.root()
         if rolename in ["timestamp", "snapshot"]:
-            root_md:Metadata[Root] = self.open("root")
-            md = root_md.signed.roles[rolename]
+            md = root_md.roles[rolename]
+        elif rolename == "targets":
+            md = self.targets()
+        else:
+            md = root_md
 
         expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
         try:
@@ -133,7 +137,7 @@ class PlaygroundRepository(Repository):
         """
         md.signed.version += 1
 
-        _, expiry_days = self.signing_expiry_period(rolename, md.signed)
+        _, expiry_days = self.signing_expiry_period(rolename)
 
         md.signed.expires = datetime.utcnow() + timedelta(days=expiry_days)
 
@@ -331,7 +335,7 @@ class PlaygroundRepository(Repository):
         bumped = True
 
         with self.edit(rolename) as signed:
-            signing_days, _ = self.signing_expiry_period(rolename, signed)
+            signing_days, _ = self.signing_expiry_period(rolename)
             delta = timedelta(days=signing_days)
 
             logger.debug(f"{rolename} signing period starts {signed.expires - delta}")
