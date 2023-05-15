@@ -50,7 +50,7 @@ class SigningEventState:
 
 class PlaygroundRepository(Repository):
     """A online repository implementation for use in GitHub Actions
-    
+
     Arguments:
         dir: metadata directory to operate on
         prev_dir: optional known good repository directory
@@ -83,7 +83,7 @@ class PlaygroundRepository(Repository):
 
     def open(self, role:str) -> Metadata:
         """Return existing metadata, or create new metadata
-        
+
         This is an implementation of Repository.open()
         """
         fname = self._get_filename(role)
@@ -107,21 +107,37 @@ class PlaygroundRepository(Repository):
 
         return md
 
+
+    def signing_expiry_period(self, rolename: str) -> tuple[int, int]:
+        """Extracts the signing and expiry period for a role
+
+        If no signing expiry is configured, half the expiry period is used.
+        """
+        if rolename in ["timestamp", "snapshot"]:
+            role = self.root().get_delegated_role(rolename)
+            expiry_days = role.unrecognized_fields["x-playground-expiry-period"]
+            signing_days = role.unrecognized_fields.get("x-playground-signing-period")
+        else:
+            signed = self.root() if rolename == "root" else self.targets(rolename)
+            expiry_days = signed.unrecognized_fields["x-playground-expiry-period"]
+            signing_days = signed.unrecognized_fields.get("x-playground-signing-period")
+
+        if signing_days is None:
+            signing_days = expiry_days // 2
+
+        return (signing_days, expiry_days)
+
+
     def close(self, rolename: str, md: Metadata) -> None:
         """Write metadata to a file in repo dir
-        
+
         Implementation of Repository.close(). Signs online roles.
         """
         md.signed.version += 1
 
-        if rolename in ["timestamp", "snapshot"]:
-            root_md:Metadata[Root] = self.open("root")
-            role = root_md.signed.roles[rolename]
-            days = role.unrecognized_fields["x-playground-expiry-period"]
-        else:
-            days = md.signed.unrecognized_fields["x-playground-expiry-period"]
+        _, expiry_days = self.signing_expiry_period(rolename)
 
-        md.signed.expires = datetime.utcnow() + timedelta(days=days)
+        md.signed.expires = datetime.utcnow() + timedelta(days=expiry_days)
 
         md.signatures.clear()
         for key in self._get_keys(rolename):
@@ -138,6 +154,7 @@ class PlaygroundRepository(Repository):
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
         if rolename in ["timestamp", "snapshot"]:
+            root_md:Metadata[Root] = self.open("root")
             # repository should never write unsigned online roles
             root_md.verify_delegate(rolename, md)
 
@@ -261,7 +278,7 @@ class PlaygroundRepository(Repository):
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
 
-        In case of root, another SigningStatus is rturned for the previous root.
+        In case of root, another SigningStatus is returned for the previous root.
         Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError(f"Not supported for online metadata")
@@ -314,15 +331,10 @@ class PlaygroundRepository(Repository):
         """Create a new version of role if it is about to expire"""
         now = datetime.utcnow()
         bumped = True
+
         with self.edit(rolename) as signed:
-            if rolename in ["timestamp", "snapshot"]:
-                # TODO: should this be configurable as well?
-                # current value is 2 * cron period so we should get 3 attempts...
-                # but 13 hours is still not a lot if e.g. KMS breaks somehow
-                delta = timedelta(hours=13)
-            else:
-                days = signed.unrecognized_fields["x-playground-signing-period"]
-                delta = timedelta(days=days)
+            signing_days, _ = self.signing_expiry_period(rolename)
+            delta = timedelta(days=signing_days)
 
             logger.debug(f"{rolename} signing period starts {signed.expires - delta}")
             if now + delta < signed.expires:
