@@ -123,7 +123,7 @@ class PlaygroundRepository(Repository):
             signing_days = signed.unrecognized_fields.get("x-playground-signing-period")
 
         if signing_days is None:
-            signing_days = max(1, expiry_days // 2)
+            signing_days = expiry_days // 2
 
         return (signing_days, expiry_days)
 
