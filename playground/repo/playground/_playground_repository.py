@@ -113,21 +113,17 @@ class PlaygroundRepository(Repository):
 
         If no signing expiry is configured, half the expiry period is used.
         """
-        root_md:Metadata[Root] = self.root()
         if rolename in ["timestamp", "snapshot"]:
-            md = root_md.roles[rolename]
-        elif rolename == "targets":
-            md = self.targets()
+            role = self.root().get_delegated_role(rolename)
+            expiry_days = role.unrecognized_fields["x-playground-expiry-period"]
+            signing_days = role.unrecognized_fields.get("x-playground-signing-period")
         else:
-            md = root_md
+            signed = self.root() if rolename == "root" else self.targets(rolename)
+            expiry_days = signed.unrecognized_fields["x-playground-expiry-period"]
+            signing_days = signed.unrecognized_fields.get("x-playground-signing-period")
 
-        expiry_days = md.unrecognized_fields["x-playground-expiry-period"]
-        try:
-            # For now set the signing period automatically if not set.
-            # For a future release this can be made mandatory.
-            signing_days = md.unrecognized_fields["x-playground-signing-period"]
-        except KeyError:
-            signing_days = int(expiry_days / 2)
+        if signing_days is None:
+            signing_days = max(1, expiry_days // 2)
 
         return (signing_days, expiry_days)
 
