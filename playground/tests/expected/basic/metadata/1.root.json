@@ -39,7 +39,7 @@
      "fa47289"
     ],
     "threshold": 1,
-    "x-playground-expiry-period": 365
+    "x-playground-expiry-period": 365,
     "x-playground-signing-period": 60
    },
    "targets": {
@@ -53,7 +53,7 @@
      "fa47289"
     ],
     "threshold": 1,
-    "x-playground-expiry-period": 1
+    "x-playground-expiry-period": 1,
     "x-playground-signing-period": 2
    }
   },
