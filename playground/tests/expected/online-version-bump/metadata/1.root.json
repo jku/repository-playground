@@ -39,8 +39,8 @@
      "fa47289"
     ],
     "threshold": 1,
-     "x-playground-expiry-period": 10,
-     "x-playground-signer-period": 4,
+    "x-playground-expiry-period": 10,
+    "x-playground-signer-period": 4,
    },
    "targets": {
     "keyids": [
@@ -53,8 +53,8 @@
      "fa47289"
     ],
     "threshold": 1,
-     "x-playground-expiry-period": 2,
-     "x-playground-signer-period": 1
+    "x-playground-expiry-period": 2,
+    "x-playground-signer-period": 1
    }
   },
   "spec_version": "1.0.31",
