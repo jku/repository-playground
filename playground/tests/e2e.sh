@@ -59,6 +59,8 @@ strip_signatures()
     case ${OS} in
         Darwin)
             sed -i e2e -E -e 's/"sig": ".+"/"sig": "XXX"/' $1
+            # Remove bakup file
+            rm "$1e2e"
         ;;
         Linux)
             sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $1
@@ -437,7 +439,8 @@ OS=$(uname -s)
 # run the tests under a fake time
 case ${OS} in
     Darwin)
-        export LD_PRELOAD=/opt/homebrew/lib/faketime/libfaketime.1.dylib
+        export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/faketime/libfaketime.1.dylib
+        export DYLD_FORCE_FLAT_NAMESPACE=1
         SOFTHSMLIB=/opt/homebrew/lib/softhsm/libsofthsm2.so
         ;;
     Linux)
