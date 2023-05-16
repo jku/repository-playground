@@ -40,7 +40,7 @@
     ],
     "threshold": 1,
     "x-playground-expiry-period": 10,
-    "x-playground-signing-period": 4,
+    "x-playground-signing-period": 4
    },
    "targets": {
     "keyids": [
