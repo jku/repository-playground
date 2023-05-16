@@ -31,7 +31,7 @@ set -euo pipefail
 
 DEBUG_TESTS=${DEBUG_TESTS:-}
 
-if [ ! -x ${DEBUG_TESTS} ]; then
+if [ ! -z ${DEBUG_TESTS} ]; then
     set -x
 fi
 
