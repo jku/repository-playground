@@ -53,8 +53,8 @@
      "fa47289"
     ],
     "threshold": 1,
-    "x-playground-signing-period": 2,
-    "x-playground-expiry-period": 1
+    "x-playground-expiry-period": 2,
+    "x-playground-signing-period": 1,
    }
   },
   "spec_version": "1.0.31",
