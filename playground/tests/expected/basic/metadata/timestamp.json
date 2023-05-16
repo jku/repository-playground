@@ -7,7 +7,7 @@
  ],
  "signed": {
   "_type": "timestamp",
-  "expires": "2021-02-04T01:02:03Z",
+  "expires": "2021-02-05T01:02:03Z",
   "meta": {
    "snapshot.json": {
     "version": 1

@@ -54,7 +54,9 @@ class OnlineConfig:
     # All keys are used as signing keys for both snapshot and timestamp
     keys: list[Key]
     timestamp_expiry: int
+    timestamp_signing: int
     snapshot_expiry: int
+    snapshot_signing: int
 
 
 @dataclass
@@ -347,7 +349,14 @@ class SignerRepository(Repository):
         timestamp_role = root.get_delegated_role("timestamp")
         snapshot_role = root.get_delegated_role("snapshot")
         timestamp_expiry = timestamp_role.unrecognized_fields["x-playground-expiry-period"]
+        timestamp_signing = timestamp_role.unrecognized_fields.get("x-playground-signing-period")
         snapshot_expiry = snapshot_role.unrecognized_fields["x-playground-expiry-period"]
+        snapshot_signing = snapshot_role.unrecognized_fields.get("x-playground-signing-period")
+
+        if timestamp_signing is None:
+            timestamp_signing = timestamp_expiry // 2
+        if snapshot_signing is None:
+            snapshot_signing = snapshot_expiry // 2
         keys = []
         for keyid in timestamp_role.keyids:
             keys.append(root.get_key(keyid))
@@ -374,7 +383,9 @@ class SignerRepository(Repository):
 
             # set online role periods
             timestamp.unrecognized_fields["x-playground-expiry-period"] = online_config.timestamp_expiry
+            timestamp.unrecognized_fields["x-playground-signing-period"] = online_config.timestamp_signing
             snapshot.unrecognized_fields["x-playground-expiry-period"] = online_config.snapshot_expiry
+            snapshot.unrecognized_fields["x-playground-signing-period"] = online_config.snapshot_signing
 
     def get_role_config(self, rolename: str) -> OfflineConfig | None:
         """Read configuration for delegation and role from metadata"""

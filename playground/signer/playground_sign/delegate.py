@@ -119,8 +119,8 @@ def _get_online_input(
         keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
         click.echo(
             f" 1. Configure online key: {keyuri}\n"
-            f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days\n"
-            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days"
+            f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days, re-signing starts {config.timestamp_signing} days before expiry\n"
+            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days, re-signing starts {config.snapshot_signing} days before expiry"
         )
         choice = click.prompt(
             bold("Please choose an option or press enter to continue"),
@@ -157,11 +157,21 @@ def _get_online_input(
                 type=int,
                 default=config.timestamp_expiry,
             )
+            config.timestamp_signing = click.prompt(
+                bold(f"Please enter timestamp signing period in days"),
+                type=int,
+                default=config.timestamp_signing,
+            )
         if choice == 3:
             config.snapshot_expiry = click.prompt(
                 bold(f"Please enter snapshot expiry in days"),
                 type=int,
                 default=config.snapshot_expiry,
+            )
+            config.snapshot_signing = click.prompt(
+                bold(f"Please enter snapshot signing period in days"),
+                type=int,
+                default=config.snapshot_signing,
             )
 
     return config
@@ -175,7 +185,7 @@ def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
 
     # As default we offer sigstore online key(s)
     keys = _sigstore_import(user_config.pull_remote)
-    default_config = OnlineConfig(keys, 1, root_config.expiry_period)
+    default_config = OnlineConfig(keys, 2, 1, root_config.expiry_period, root_config.signing_period)
     online_config = _get_online_input(default_config, user_config)
 
     key = None

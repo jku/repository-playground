@@ -28,13 +28,16 @@
 #      + git/ -- the repository used to emulate human user running playground-delegate and sign
 
 set -euo pipefail
-if [ -v DEBUG_TESTS ]; then
+
+DEBUG_TESTS=${DEBUG_TESTS:-}
+
+if [ ! -z ${DEBUG_TESTS} ]; then
     set -x
 fi
 
 function cleanup {
     EXIT_CODE=$?
-    if [ -v DEBUG_TESTS ]; then
+    if [ ! -z ${DEBUG_TESTS} ]; then
         ls $WORK_DIR
         if [[ $EXIT_CODE -ne 0 ]]; then
           echo "signer STDOUT:"
@@ -146,7 +149,8 @@ signer_init_shorter_snapshot_expiry()
         "1"                 # Configure online roles? [1: configure key]
         "LOCAL_TESTING_KEY" # Enter key id
         "3"                 # Configure online roles? [3: configure snapshot]
-        "10"                 # Enter expiry [10 days]
+        "10"                # Enter expiry [10 days]
+        "4"                 # Enter signing period [4 days]
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
@@ -276,7 +280,7 @@ repo_status_fail()
     # TODO: check output for specifics
     cd $REPO_GIT
     if playground-status >> $REPO_DIR/out; then
-        echo "Unexpected status success" 
+        echo "Unexpected status success"
         return 1
     fi
     git_repo checkout --quiet main
