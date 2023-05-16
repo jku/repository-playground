@@ -61,7 +61,7 @@ strip_signatures()
             sed -i e2e -E -e 's/"sig": ".+"/"sig": "XXX"/' $1
         ;;
         Linux)
-            sed -i e2e -e 's/"sig": ".\+"/"sig": "XXX"/' $1
+            sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $1
         ;;
         *)
             echo "Unsupported os ${OS}"
