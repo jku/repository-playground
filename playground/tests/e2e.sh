@@ -10,6 +10,9 @@
 # * libfaketime
 # * softhsm2
 #
+# For macOS users, those dependencies are available via Homebrew:
+# $ brew install softhsm swig libfaketime
+#
 # Python dependencies
 # * signer: pip install ./playground/signer/
 # * repo: pip install ./playground/repo/
@@ -54,12 +57,20 @@ function cleanup {
 }
 trap cleanup EXIT
 
+strip_signatures()
+{
+    sed -ie2e -E -e 's/"sig": ".+"/"sig": "XXX"/' $1
+    # Remove backup file
+    rm "$1e2e"
+}
+
 git_repo()
 {
     git \
         -C $REPO_GIT \
         -c user.name=repository-playground \
         -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+        -c commit.gpgsign=false \
         $@
 }
 
@@ -346,7 +357,9 @@ test_basic()
 
     # Verify test result
     # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy
-    sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $PUBLISH_DIR/metadata/*.json
+    for t in ${PUBLISH_DIR}/metadata/*.json; do
+        strip_signatures $t
+    done
     # the resulting metadata should match expected metadata exactly
     diff -r $SCRIPT_DIR/expected/basic/ $PUBLISH_DIR
 
@@ -374,7 +387,9 @@ test_online_bumps()
 
     # Verify test result
     # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy
-    sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $PUBLISH_DIR/metadata/*.json
+    for t in ${PUBLISH_DIR}/metadata/*.json; do
+        strip_signatures $t
+    done
     # the resulting metadata should match expected metadata exactly
     diff -r $SCRIPT_DIR/expected/online-version-bump/ $PUBLISH_DIR
 
@@ -402,22 +417,40 @@ test_multi_user_signing()
 
     # Verify test result
     # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy
-    sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $PUBLISH_DIR/metadata/*.json
+    for t in ${PUBLISH_DIR}/metadata/*.json; do
+        strip_signatures $t
+    done
     # the resulting metadata should match expected metadata exactly
     diff -r $SCRIPT_DIR/expected/multi-user-signing/ $PUBLISH_DIR
 
     echo "OK"
 }
 
+OS=$(uname -s)
 
 # run the tests under a fake time
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1
+case ${OS} in
+    Darwin)
+        export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/faketime/libfaketime.1.dylib
+        export DYLD_FORCE_FLAT_NAMESPACE=1
+        SOFTHSMLIB=/opt/homebrew/lib/softhsm/libsofthsm2.so
+        ;;
+    Linux)
+        export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1
+        SOFTHSMLIB="/usr/lib/softhsm/libsofthsm2.so"
+        ;;
+    *)
+        echo "Unsupported os ${OS}"
+        exit 1
+        ;;
+esac
+
 export FAKETIME="2021-02-03 01:02:03"
 export TZ="UTC"
 
 WORK_DIR=$(mktemp -d)
 SCRIPT_DIR=$(dirname $(readlink -f "$0"))
-SOFTHSMLIB="/usr/lib/softhsm/libsofthsm2.so"
+
 ONLINE_KEY="1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480"
 
 # Run tests
