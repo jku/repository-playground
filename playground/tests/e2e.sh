@@ -10,6 +10,9 @@
 # * libfaketime
 # * softhsm2
 #
+# For macOS users, those dependencies are available via Homebrew:
+# $ brew install softhsm swig libfaketime
+#
 # Python dependencies
 # * signer: pip install ./playground/signer/
 # * repo: pip install ./playground/repo/
