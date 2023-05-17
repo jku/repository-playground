@@ -59,20 +59,9 @@ trap cleanup EXIT
 
 strip_signatures()
 {
-    case ${OS} in
-        Darwin)
-            sed -i e2e -E -e 's/"sig": ".+"/"sig": "XXX"/' $1
-            # Remove bakup file
-            rm "$1e2e"
-        ;;
-        Linux)
-            sed -i -e 's/"sig": ".\+"/"sig": "XXX"/' $1
-        ;;
-        *)
-            echo "Unsupported os ${OS}"
-            exit 1
-        ;;
-    esac
+    sed -ie2e -E -e 's/"sig": ".+"/"sig": "XXX"/' $1
+    # Remove backup file
+    rm "$1e2e"
 }
 
 git_repo()
