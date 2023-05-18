@@ -6,17 +6,8 @@
 # * Hardware signing
 # * Online signing
 #
-# System dependencies
-# * libfaketime
-# * softhsm2
 #
-# For macOS users, those dependencies are available via Homebrew:
-# $ brew install softhsm swig libfaketime
-#
-# Python dependencies
-# * signer: pip install ./playground/signer/
-# * repo: pip install ./playground/repo/
-# * pynacl: pip install pynacl  # for the testing ed25519 key
+# See README.md for requirements and installation instructions.
 #
 #
 # Set DEBUG_TESTS=1 for more visibility. This will leave the temp directories in place.

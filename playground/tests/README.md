@@ -32,15 +32,26 @@ The main thing being verified in the tests is the final "publishable" metadata r
 structure would be nice to verify as well but unfortunately the nondeterministic ECDSA signatures make that tricky.
 
 ## Requirements
-
-* libsofthsm2 (currently hardcoded "/usr/lib/softhsm/libsofthsm2.so")
-* libfaketime (currently hardcoded "/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1")
-* Both playground/signer and playground/repo must be installed
-  (`pip install -e ../signer/ && pip install -e ../repo/`)
+* System (Linux)
+  ```sh
+  apt install softhsm2 swig libfaketime
+  ```
+* System (macOS)
+  ```sh
+  brew install softhsm swig libfaketime
+  ```
+* Python
+  ```sh
+  pip install -e ../signer/ && pip install -e ../repo/
+  ```
 
 ## Issues
-
 * Hard to see what is happening in a test (`DEBUG_TESTS=1 ./e2e.sh` helps but is still not great)
+* Hard-coded shared library paths for `libsofthsm2` and `libfaketime` need to be changed in `e2e.sh`, if not installed in
+  a standard location.
+* On macOS `libfaketime` does not work, if using system Python and SIP is enabled (default). You may try using a custom
+  Python installation, e.g. from `brew`. For more infos, see 
+  [libfaketime/README.OSX](https://github.com/wolfcw/libfaketime/blob/master/README.OSX).
 * The whole rig is a hack to get something running, not a real test setup.
   Could consider using https://github.com/bats-core/bats-core or similar
   if the core idea seems viable.
