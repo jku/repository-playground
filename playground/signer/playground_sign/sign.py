@@ -61,23 +61,13 @@ def sign(verbose: int, push: bool, event_name: str):
                 repo.sign(rolename)
             changed = True
         elif repo.state == SignerState.TARGETS_CHANGED:
-            click.echo(f"Following local target files changes have been found:")
+            click.echo(f"Target file changes have been found in this signing event:")
             for rolename, states in repo.target_changes.items():
                 for target_state in states.values():
                     click.echo(f"  {target_state.target.path} ({target_state.state.name})")
             click.prompt(bold("Press enter to approve these changes"), default=True, show_default=False)
 
             repo.update_targets()
-
-            for rolename, states in repo.target_changes.items():
-                for target_state in states.values():
-                    parent, _, name = target_state.target.path.rpartition("/")
-                    path = os.path.join("targets", parent, name)
-                    if target_state.state == State.REMOVED:
-                        git_expect(["rm", "--", path])
-                    else:
-                        git_expect(["add", "--", path])
-
             changed = True
         elif repo.state == SignerState.NO_ACTION:
             changed = False
