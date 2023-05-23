@@ -24,6 +24,13 @@ case ${OS} in
     ;;
 esac
 
+if [ ! -f ${YKSLIB} ]; then
+    echo "Could not find a PKCS library at path ${YKSLIB}"
+    echo "Please install a PKCS library, or enter a path where one is installed:"
+    read YKSLIB
+    echo "Using ${YKSLIB}. This can changed later via 'pykcs11lib' in file .playground-sign.ini"
+fi
+
 cat > .playground-sign.ini <<EOF
 [settings]
 # Path to PKCS#11 module
