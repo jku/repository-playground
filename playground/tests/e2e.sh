@@ -190,20 +190,18 @@ signer_init_multiuser()
     export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
 
     INPUT=(
-        "1"                 # Configure root ? [1: configure signers]
-        "@playgrounduser1, @playgrounduser2" # Enter signers
-        "2"                 # enter threshold
         ""                  # Configure root? [enter to continue]
         "1"                 # Configure targets? [1: configure signers]
-        ""                  # Enter signers [enter to accept the defaults]
-        "1"                 # Enter threshold
+        "@playgrounduser1, @playgrounduser2" # Enter signers
+        "2"                 # Enter threshold
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
         "LOCAL_TESTING_KEY" # Enter key id
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
-        "0000"              # sign targets
+        "0000"              # sign root
+        "0000"              # sign root
         ""                  # press enter to push
     )
 
