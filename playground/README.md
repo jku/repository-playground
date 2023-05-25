@@ -101,16 +101,6 @@ Notes on remotes configured in `.playground-sign.ini`:
    ```
 1. Respond to the prompts
 
-
-### Modify target files
-
-1. Add, remove or modify files under targets/ directory
-1. Run signer tool
-   ```
-   playground-sign <event-name>
-   ```
-1. Respond to the prompts
-
 ### Add a delegation or modify an existing one
 
 1. Run delegate tool when you want to modify a roles delegation
@@ -118,6 +108,30 @@ Notes on remotes configured in `.playground-sign.ini`:
    playground-delegate <event-name> <role>
    ```
 1. Respond to the prompts
+
+### Modify target files
+
+1. Make target file changes in the signing event git branch
+   * Choose a signing event name, create a branch
+     ```
+     git fetch origin
+     git switch -C sign/my-target-changes origin/main
+     ```
+   * Make changes with tools of your choosing:
+     ```
+     echo "test content" > targets/file.txt
+     git add targets/file.txt
+     git commit -m "Add a target file"
+     ```
+   * Submit changes to a signing event branch on the repository (by pushing to repository
+     or by using a PR to a signing event branch): This starts a signing event
+     ```
+     git push origin sign/my-target-changes
+     ```
+1. Update targets metadata
+   ```
+   playground-sign sign/my-target-changes
+   ```
 
 ### Sign changes made by others
 
