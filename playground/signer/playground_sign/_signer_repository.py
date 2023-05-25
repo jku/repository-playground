@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 SIGNER_FOR_URI_SCHEME[SigstoreSigner.SCHEME] = SigstoreSigner
 
-
+# NOTE This signer state should likely be just separate attributes
+# of the SignerRepository: It should be possible to have multiple states
+# "on" at the same time (e.g. INVITED, TARGETS_CHANGED & SIGNATURE_NEEDED)
 @unique
 class SignerState(Enum):
     NO_ACTION = 0,
@@ -162,7 +164,7 @@ class SignerRepository(Repository):
             self.state = SignerState.UNINITIALIZED
         elif self.invites:
             self.state = SignerState.INVITED
-        elif self.target_changes:
+        elif self._unapplied_target_changes():
             self.state = SignerState.TARGETS_CHANGED
         elif self.unsigned:
             self.state = SignerState.SIGNATURE_NEEDED
@@ -201,6 +203,21 @@ class SignerRepository(Repository):
             raise ValueError(f"Targets have been added for unknown roles {target_states.unknown_rolenames}")
 
         return target_states
+
+    def _unapplied_target_changes(self) -> bool:
+        """Returns True if there are target changes in the signing event branch that are
+        not yet included in the signing event metadata"""
+        for rolename, target_states in self.target_changes.items():
+            targets = self.targets(rolename)
+            for path, target_state in target_states.items():
+                if target_state.state == State.REMOVED:
+                    if path in targets.targets:
+                        return True
+                else:
+                    if path not in targets.targets or targets.targets[target_state.target.path] != target_state.target:
+                        return True
+
+        return False
 
     def _user_signature_needed(self, rolename: str) -> bool:
         """Return true if current role metadata is unsigned by user"""
