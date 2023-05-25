@@ -273,8 +273,8 @@ signer_add_targets_and_sign()
     cd $SIGNER_GIT
 
     # Make target file changes, push to remote signing event branch
-    git fetch origin
-    git checkout --quiet $EVENT
+    git fetch --quiet origin
+    git switch --quiet -C $EVENT origin/main
     mkdir -p targets
     echo "file1" > targets/file1.txt
     echo "file2" > targets/file2.txt
@@ -307,7 +307,7 @@ signer_modify_targets_and_sign()
 
     # Make target file changes, push to remote signing event branch
     git fetch --quiet origin
-    git switch --quiet -C $EVENT origin/main
+    git switch --quiet $EVENT
     echo "file1 modified" > targets/file1.txt
     git rm --quiet targets/file2.txt
     git add targets/file1.txt
@@ -495,19 +495,30 @@ test_target_changes()
     echo -n "Target file changes... "
     setup_test "target-file-changes"
 
-    # Run the processes under test
-    # user1: Start signing event, sign root and targets
-    signer_init user1 sign/initial
-    signer_add_targets_and_sign user1 sign/initial
+    # This first section is identical to multi-user-signing
+    # user1: Start signing event, invite user2 as second targets signer
+    signer_init_multiuser user1 sign/initial
+    repo_status_fail sign/initial
+    # user2: accept invite, sign targets
+    signer_accept_invite user2 sign/initial
+    repo_status_fail sign/initial
+    # user1: sign root & targets
+    signer_sign user1 sign/initial
 
-    # merge successful signing event, create snapshot
+    # merge successful signing event, create new snapshot
     repo_merge sign/initial
     repo_snapshot
 
-    signer_modify_targets_and_sign user1 sign/modify-targets
+    # This section modifies targets in a new signing event
+    # user1: Add two targets. Sign
+    signer_add_targets_and_sign user1 sign/new-targets
+    # user2: delete one target, modify another. Sign
+    signer_modify_targets_and_sign user2 sign/new-targets
+    # user1: original signature is no longer valid: sign again
+    signer_sign user1 sign/new-targets
 
-    # merge successful signing event, create snapshot
-    repo_merge sign/modify-targets
+    # merge successful signing event, create new snapshot
+    repo_merge sign/new-targets
     repo_snapshot
 
     # Verify test result
