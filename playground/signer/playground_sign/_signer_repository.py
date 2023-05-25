@@ -552,14 +552,21 @@ class SignerRepository(Repository):
         return "TODO: Describe the changes in the signing event for this role"
 
     def update_targets(self):
-        """Modify targets metadata to match target changes and sign"""
+        """Modify targets metadata to match the target file changes and sign
+
+        Start with 'known good' TargetFiles: the metadata in the signing
+        event could have been changed in unpredictable ways: target_changes
+        documents changes from known good state"""
         for rolename, target_states in self.target_changes.items():
+            known_good_targets = self._known_good_targets(rolename).targets
+            for target_state in target_states.values():
+                if target_state.state == State.REMOVED:
+                    del known_good_targets[target_state.target.path]
+                else:
+                    known_good_targets[target_state.target.path] = target_state.target
+
             with self.edit_targets(rolename) as targets:
-                for target_state in target_states.values():
-                    if target_state.state == State.REMOVED:
-                        del targets.targets[target_state.target.path]
-                    else:
-                        targets.targets[target_state.target.path] = target_state.target
+                targets.targets = known_good_targets
 
     def sign(self, rolename: str):
         """Sign without payload changes"""
