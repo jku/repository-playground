@@ -190,20 +190,18 @@ signer_init_multiuser()
     export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
 
     INPUT=(
-        "1"                 # Configure root ? [1: configure signers]
-        "@playgrounduser1, @playgrounduser2" # Enter signers
-        "2"                 # enter threshold
         ""                  # Configure root? [enter to continue]
         "1"                 # Configure targets? [1: configure signers]
-        ""                  # Enter signers [enter to accept the defaults]
-        "1"                 # Enter threshold
+        "@playgrounduser1, @playgrounduser2" # Enter signers
+        "2"                 # Enter threshold
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
         "LOCAL_TESTING_KEY" # Enter key id
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
-        "0000"              # sign targets
+        "0000"              # sign root
+        "0000"              # sign root
         ""                  # press enter to push
     )
 
@@ -262,6 +260,72 @@ signer_sign()
         echo $line
     done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
 }
+
+signer_add_targets_and_sign()
+{
+    USER=$1
+    EVENT=$2
+
+    SIGNER_DIR="$WORK_DIR/$TEST_NAME/$USER"
+    SIGNER_GIT="$SIGNER_DIR/git"
+    export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
+
+    cd $SIGNER_GIT
+
+    # Make target file changes, push to remote signing event branch
+    git fetch --quiet origin
+    git switch --quiet -C $EVENT origin/main
+    mkdir -p targets
+    echo "file1" > targets/file1.txt
+    echo "file2" > targets/file2.txt
+    git add targets/file1.txt targets/file2.txt
+    git commit  --quiet -m "Add 2 target files"
+    git push --quiet origin $EVENT
+
+    # run playground-sign: creates a commit, pushes it to remote signing event branch
+    INPUT=(
+        ""                  # press enter to approve target changes
+        "0000"              # sign the role
+        ""                  # press enter to push
+    )
+
+    for line in "${INPUT[@]}"; do
+        echo $line
+    done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
+}
+
+signer_modify_targets_and_sign()
+{
+    USER=$1
+    EVENT=$2
+
+    SIGNER_DIR="$WORK_DIR/$TEST_NAME/$USER"
+    SIGNER_GIT="$SIGNER_DIR/git"
+    export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
+
+    cd $SIGNER_GIT
+
+    # Make target file changes, push to remote signing event branch
+    git fetch --quiet origin
+    git switch --quiet $EVENT
+    echo "file1 modified" > targets/file1.txt
+    git rm --quiet targets/file2.txt
+    git add targets/file1.txt
+    git commit  --quiet -m "Modify target files"
+    git push --quiet origin $EVENT
+
+    # run playground-sign: creates a commit, pushes it to remote signing event branch
+    INPUT=(
+        ""                  # press enter to approve target changes
+        "0000"              # sign the role
+        ""                  # press enter to push
+    )
+
+    for line in "${INPUT[@]}"; do
+        echo $line
+    done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
+}
+
 
 repo_merge()
 {
@@ -426,6 +490,49 @@ test_multi_user_signing()
     echo "OK"
 }
 
+test_target_changes()
+{
+    echo -n "Target file changes... "
+    setup_test "target-file-changes"
+
+    # This first section is identical to multi-user-signing
+    # user1: Start signing event, invite user2 as second targets signer
+    signer_init_multiuser user1 sign/initial
+    repo_status_fail sign/initial
+    # user2: accept invite, sign targets
+    signer_accept_invite user2 sign/initial
+    repo_status_fail sign/initial
+    # user1: sign root & targets
+    signer_sign user1 sign/initial
+
+    # merge successful signing event, create new snapshot
+    repo_merge sign/initial
+    repo_snapshot
+
+    # This section modifies targets in a new signing event
+    # user1: Add two targets. Sign
+    signer_add_targets_and_sign user1 sign/new-targets
+    # user2: delete one target, modify another. Sign
+    signer_modify_targets_and_sign user2 sign/new-targets
+    # user1: original signature is no longer valid: sign again
+    signer_sign user1 sign/new-targets
+
+    # merge successful signing event, create new snapshot
+    repo_merge sign/new-targets
+    repo_snapshot
+
+    # Verify test result
+    # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy
+    for t in ${PUBLISH_DIR}/metadata/*.json; do
+        strip_signatures $t
+    done
+    # the resulting metadata should match expected metadata exactly
+    diff -r $SCRIPT_DIR/expected/target-file-changes/ $PUBLISH_DIR
+
+    echo "OK"
+}
+
+
 OS=$(uname -s)
 
 # run the tests under a fake time
@@ -457,3 +564,4 @@ ONLINE_KEY="1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480"
 test_basic
 test_online_bumps
 test_multi_user_signing
+test_target_changes

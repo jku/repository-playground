@@ -12,6 +12,7 @@ version = "0.0.1"
 description = "TUF signing tool for Repository Plaground"
 readme = "README.md"
 dependencies = [
+  "sigstore @ git+https://github.com/sigstore/sigstore-python",
   "securesystemslib[gcpkms,hsm,sigstore] @ git+https://github.com/secure-systems-lab/securesystemslib",
   "tuf @ git+https://github.com/theupdateframework/python-tuf",
   "click",
