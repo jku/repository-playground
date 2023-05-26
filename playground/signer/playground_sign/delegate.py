@@ -9,7 +9,7 @@ import click
 import logging
 import os
 from securesystemslib.signer import (
-    AzureSigner
+    AzureSigner,
     GCPSigner,
     KEY_FOR_TYPE_AND_SCHEME,
     SSlibKey,
