@@ -8,7 +8,13 @@ from urllib import parse
 import click
 import logging
 import os
-from securesystemslib.signer import GCPSigner, SigstoreKey, SSlibKey, KEY_FOR_TYPE_AND_SCHEME
+from securesystemslib.signer import (
+    AzureSigner
+    GCPSigner,
+    KEY_FOR_TYPE_AND_SCHEME,
+    SSlibKey,
+    SigstoreKey,
+)
 
 from playground_sign._common import (
     bold,
@@ -145,12 +151,24 @@ def _get_online_input(
             elif key_id == "":
                 config.keys = _sigstore_import(user_config.pull_remote)
             else:
-                try:
-                    uri, key = GCPSigner.import_(key_id)
-                    key.unrecognized_fields["x-playground-online-uri"] = uri
-                    config.keys = [key]
-                except Exception as e:
-                    raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+                # Try to load a cloud KMS key
+                if key_id.startswith(GCPSigner.SCHEME):
+                    try:
+                        uri, key = GCPSigner.import_(key_id)
+                        key.unrecognized_fields["x-playground-online-uri"] = uri
+                        config.keys = [key]
+                    except Exception as e:
+                        raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+                elif key_id.startswith(AzureSigner.SCHEME):
+                    try:
+                        uri, key = AzureSigner.import_(key_id)
+                        key.unrecognized_fields["x-playground-online-uri"] = uri
+                        config.keys = [key]
+                    except Exception as e:
+                        raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+                else:
+                    raise click.ClickException(f"Unrecognized key: {key_id}")
+
         if choice == 2:
             config.timestamp_expiry = click.prompt(
                 bold(f"Please enter timestamp expiry in days"),
