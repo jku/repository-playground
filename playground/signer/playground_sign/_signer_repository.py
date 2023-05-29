@@ -26,29 +26,12 @@ logger = logging.getLogger(__name__)
 KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 SIGNER_FOR_URI_SCHEME[SigstoreSigner.SCHEME] = SigstoreSigner
 
-# NOTE This signer state should likely be just separate attributes
-# of the SignerRepository: It should be possible to have multiple states
-# "on" at the same time (e.g. INVITED, TARGETS_CHANGED & SIGNATURE_NEEDED)
 @unique
 class SignerState(Enum):
     NO_ACTION = 0,
     UNINITIALIZED = 1,
     INVITED = 2,
-    TARGETS_CHANGED = 3
     SIGNATURE_NEEDED = 4,
-
-
-@unique
-class State(Enum):
-    ADDED = 0,
-    MODIFIED = 1,
-    REMOVED = 2,
-
-
-@dataclass
-class TargetState:
-    target: TargetFile
-    state: State
 
 
 @dataclass
@@ -67,43 +50,6 @@ class OfflineConfig:
     threshold: int
     expiry_period: int
     signing_period: int
-
-class TargetStates(defaultdict[str, dict[str, TargetState]]):
-    def __init__(self, target_dir: str):
-        self.default_factory=dict
-        # Check what targets we have on disk, mark them as ADDED for now
-        self.unknown_rolenames = set()
-        for path in glob("*", root_dir=target_dir) + glob("*/*", root_dir=target_dir):
-            realpath = os.path.join(target_dir, path)
-            if not os.path.isfile(realpath):
-                continue
-
-            # targetpath is a URL path, not OS path
-            rolename, fname = os.path.split(path)
-            if rolename:
-                targetpath = f"{rolename}/{fname}"
-            else:
-                rolename = "targets"
-                targetpath = fname
-
-            target = TargetFile.from_file(targetpath, realpath, ["sha256"])
-            # actual state may also be MODIFIED (or no change), see below
-            self[rolename][targetpath] = TargetState(target, State.ADDED)
-            self.unknown_rolenames.add(rolename)
-
-    def update_target_states(self, rolename: str, targets: Targets):
-        """Mark target state as MODIFIED or REMOVED (or remove the state if target is unchanged)"""
-        self.unknown_rolenames.discard(rolename)
-        for target in targets.targets.values():
-            if target.path in self[rolename]:
-                if target == self[rolename][target.path].target:
-                    del self[rolename][target.path]
-                    if not self[rolename]:
-                        del self[rolename]
-                else:
-                    self[rolename][target.path].state = State.MODIFIED
-            else:
-                self[rolename][target.path] = TargetState(target, State.REMOVED)
 
 
 def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str]:
@@ -147,12 +93,6 @@ class SignerRepository(Repository):
                 config = json.load(f)
             self._invites = config["invites"]
 
-        # Find changes between known good metadata and the target files in signing event.
-        # NOTE: Currently target file location is hard coded to a directory in the git-tree
-        # There is a plan to expose an external targets location in the UI as well.
-        target_dir = os.path.join(self._dir, "..", "targets")
-        self.target_changes = self._get_target_states(target_dir)
-
         # Figure out needed signatures
         self.unsigned = []
         for rolename in _find_changed_roles(self._prev_dir, self._dir):
@@ -164,8 +104,6 @@ class SignerRepository(Repository):
             self.state = SignerState.UNINITIALIZED
         elif self.invites:
             self.state = SignerState.INVITED
-        elif self._unapplied_target_changes():
-            self.state = SignerState.TARGETS_CHANGED
         elif self.unsigned:
             self.state = SignerState.SIGNATURE_NEEDED
         else:
@@ -178,46 +116,6 @@ class SignerRepository(Repository):
             return self._invites[self.user_name]
         except KeyError:
             return []
-
-    def _get_target_states(self, target_dir: str) -> dict[str, dict[str, TargetState]]:
-        """Returns current state of target files vs target metadata.
-
-        Current state of target files comes from given targets directory.
-        Target metadata on the other hand is from the "known good metadata state".
-
-        Raises ValueError if target files have been added for a role that does not exist.
-        First dict key in return value is rolename, second key is targetpath
-        """
-
-        # Check what targets we have in the signing event, mark them as ADDED for now
-        target_states = TargetStates(target_dir)
-
-        # Update target states based on targets metadata in known good state
-        targets = self._known_good_targets("targets")
-        target_states.update_target_states("targets", targets)
-        if targets.delegations and targets.delegations.roles:
-            for rolename in targets.delegations.roles:
-                target_states.update_target_states(rolename, self._known_good_targets(rolename))
-
-        if target_states.unknown_rolenames:
-            raise ValueError(f"Targets have been added for unknown roles {target_states.unknown_rolenames}")
-
-        return target_states
-
-    def _unapplied_target_changes(self) -> bool:
-        """Returns True if there are target changes in the signing event branch that are
-        not yet included in the signing event metadata"""
-        for rolename, target_states in self.target_changes.items():
-            targets = self.targets(rolename)
-            for path, target_state in target_states.items():
-                if target_state.state == State.REMOVED:
-                    if path in targets.targets:
-                        return True
-                else:
-                    if path not in targets.targets or targets.targets[target_state.target.path] != target_state.target:
-                        return True
-
-        return False
 
     def _user_signature_needed(self, rolename: str) -> bool:
         """Return true if current role metadata is unsigned by user"""
@@ -348,18 +246,6 @@ class SignerRepository(Repository):
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
         self._write(role, md)
-
-    def _known_good_targets(self, rolename: str) -> Targets:
-        prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
-        if os.path.exists(prev_path):
-            with open(prev_path, "rb") as f:
-                md = Metadata.from_bytes(f.read())
-            assert isinstance(md.signed, Targets)
-            return md.signed
-        else:
-            # this role did not exist: return an empty one for comparison purposes
-            return Targets()
-
 
     @staticmethod
     def _get_delegated_rolenames(md: Metadata) -> list[str]:
@@ -550,23 +436,6 @@ class SignerRepository(Repository):
 
     def status(self, rolename: str) -> str:
         return "TODO: Describe the changes in the signing event for this role"
-
-    def update_targets(self):
-        """Modify targets metadata to match the target file changes and sign
-
-        Start with 'known good' TargetFiles: the metadata in the signing
-        event could have been changed in unpredictable ways: target_changes
-        documents changes from known good state"""
-        for rolename, target_states in self.target_changes.items():
-            known_good_targets = self._known_good_targets(rolename).targets
-            for target_state in target_states.values():
-                if target_state.state == State.REMOVED:
-                    del known_good_targets[target_state.target.path]
-                else:
-                    known_good_targets[target_state.target.path] = target_state.target
-
-            with self.edit_targets(rolename) as targets:
-                targets.targets = known_good_targets
 
     def sign(self, rolename: str):
         """Sign without payload changes"""

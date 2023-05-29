@@ -14,7 +14,7 @@ from playground_sign._common import (
     SignerConfig,
     signing_event,
 )
-from playground_sign._signer_repository import SignerState, State
+from playground_sign._signer_repository import SignerState
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +53,6 @@ def sign(verbose: int, push: bool, event_name: str):
                 for rolename in repo.unsigned:
                     click.echo(repo.status(rolename))
                     repo.sign(rolename)
-            changed = True
-        elif repo.state == SignerState.TARGETS_CHANGED:
-            click.echo(f"Target file changes have been found in this signing event:")
-            for rolename, states in repo.target_changes.items():
-                for target_state in states.values():
-                    click.echo(f"  {target_state.target.path} ({target_state.state.name})")
-            click.prompt(bold("Press enter to approve these changes"), default=True, show_default=False)
-
-            repo.update_targets()
             changed = True
         elif repo.state == SignerState.SIGNATURE_NEEDED:
             click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")

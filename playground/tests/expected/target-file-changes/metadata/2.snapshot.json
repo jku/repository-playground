@@ -10,7 +10,7 @@
   "expires": "2022-02-03T01:02:03Z",
   "meta": {
    "targets.json": {
-    "version": 2
+    "version": 3
    }
   },
   "spec_version": "1.0.31",

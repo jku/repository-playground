@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum, unique
 from glob import glob
 import json
 import logging
@@ -9,7 +10,7 @@ from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME
 from sigstore.oidc import detect_credential
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, Targets, Timestamp
+from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, TargetFile, Targets, Timestamp
 from tuf.repository import AbortEdit, Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 
@@ -21,12 +22,29 @@ KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 
 logger = logging.getLogger(__name__)
 
+@unique
+class State(Enum):
+    ADDED = 0,
+    MODIFIED = 1,
+    REMOVED = 2,
+
+
+@dataclass
+class TargetState:
+    target: TargetFile
+    state: State
+
+    def __str__(self):
+        return f"{self.target.path}: {self.state.name}"
+
+
 @dataclass
 class SigningStatus:
     invites: set[str] # invites to _delegations_ of the role
     signed: set[str]
     missing: set[str]
     threshold: int
+    target_changes: list[TargetState]
     valid: bool
     message: str | None
 
@@ -238,6 +256,64 @@ class PlaygroundRepository(Repository):
 
         return True, None
 
+    def _build_targets(self, target_dir: str, rolename: str) -> dict[str, TargetFile]:
+        """Build a roles dict of TargetFile based on target files in a directory"""
+        targetfiles = {}
+
+        if rolename == "targets":
+            root_dir = target_dir
+        else:
+            root_dir = os.path.join(target_dir, rolename)
+
+        for fname in glob("*", root_dir=root_dir):
+            realpath = os.path.join(root_dir, fname)
+            if not os.path.isfile(realpath):
+                continue
+
+            # targetpath is a URL path, not OS path
+            if rolename == "targets":
+                targetpath = fname
+            else:
+                targetpath = f"{rolename}/{fname}"
+            targetfiles[targetpath] = TargetFile.from_file(targetpath, realpath, ["sha256"])
+
+        return targetfiles
+
+    def _known_good_targets(self, rolename: str) -> Targets:
+        """Return Targets from the known good version (signing event start point)"""
+        prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Targets)
+            return md.signed
+        else:
+            # this role did not exist: return an empty one for comparison purposes
+            return Targets()
+
+    def _get_target_changes(self, rolename: str) -> list[TargetState]:
+        """Compare targetfiles in known good version and signing event version:
+        return list of changes"""
+
+        if rolename in ["root", "timestamp", "snapshot"]:
+            return []
+
+        changes = []
+
+        known_good_targetfiles = self._known_good_targets(rolename).targets
+        for targetfile in self.targets(rolename).targets.values():
+            if targetfile.path not in known_good_targetfiles:
+                changes.append(TargetState(targetfile, State.ADDED))
+            elif targetfile != known_good_targetfiles[targetfile.path]:
+                changes.append(TargetState(targetfile, State.MODIFIED))
+                del known_good_targetfiles[targetfile.path]
+
+        for targetfile in known_good_targetfiles.values():
+            changes.append(TargetState(targetfile, State.REMOVED))
+
+        return changes
+
+
     def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
         """Build signing status for role.
 
@@ -270,10 +346,16 @@ class PlaygroundRepository(Repository):
             except (KeyError, UnverifiedSignatureError):
                 missing_sigs.add(keyowner)
 
-        # Just to be sure: double check that delegation threshold is reached
-        valid, msg = self._validate_role(delegator, rolename)
+        # Document changes to targets metadata in this signing event
+        target_changes = self._get_target_changes(rolename)
 
-        return SigningStatus(invites, sigs, missing_sigs, role.threshold, valid, msg)
+        # Just to be sure: double check that delegation threshold is reached
+        if invites:
+            valid, msg = False, None
+        else:
+            valid, msg = self._validate_role(delegator, rolename)
+
+        return SigningStatus(invites, sigs, missing_sigs, role.threshold, target_changes, valid, msg)
 
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
@@ -343,3 +425,19 @@ class PlaygroundRepository(Repository):
                 raise AbortEdit
 
         return signed.version if bumped else None
+
+
+    def update_targets(self, rolename: str) -> bool:
+        if rolename in ["root", "timestamp", "snapshot"]:
+            return False
+        
+        new_target_dict = self._build_targets(os.path.join(self._dir, "..", "targets"), rolename)
+        with self.edit_targets(rolename) as targets:
+            # if targets dict has no changes, cancel the metadata edit
+            if targets.targets == new_target_dict:
+                raise AbortEdit("No target changes needed")
+
+            targets.targets = new_target_dict
+            return True
+
+        return False
