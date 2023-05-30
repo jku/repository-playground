@@ -81,7 +81,7 @@ repo_setup()
 
     # Clone upstream to repo, create a dummy commit so merges are possible
     git_repo clone --quiet $UPSTREAM_GIT . 2>/dev/null
-    touch $REPO_GIT/.dummy
+    touch $REPO_GIT/.dummy $REPO_DIR/out
     git_repo add .dummy
     git_repo commit -m "init" --quiet
     git_repo push --quiet
@@ -261,7 +261,7 @@ signer_sign()
     done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
 }
 
-signer_add_targets_and_sign()
+signer_add_targets()
 {
     USER=$1
     EVENT=$2
@@ -281,20 +281,9 @@ signer_add_targets_and_sign()
     git add targets/file1.txt targets/file2.txt
     git commit  --quiet -m "Add 2 target files"
     git push --quiet origin $EVENT
-
-    # run playground-sign: creates a commit, pushes it to remote signing event branch
-    INPUT=(
-        ""                  # press enter to approve target changes
-        "0000"              # sign the role
-        ""                  # press enter to push
-    )
-
-    for line in "${INPUT[@]}"; do
-        echo $line
-    done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
 }
 
-signer_modify_targets_and_sign()
+signer_modify_targets()
 {
     USER=$1
     EVENT=$2
@@ -313,17 +302,6 @@ signer_modify_targets_and_sign()
     git add targets/file1.txt
     git commit  --quiet -m "Modify target files"
     git push --quiet origin $EVENT
-
-    # run playground-sign: creates a commit, pushes it to remote signing event branch
-    INPUT=(
-        ""                  # press enter to approve target changes
-        "0000"              # sign the role
-        ""                  # press enter to push
-    )
-
-    for line in "${INPUT[@]}"; do
-        echo $line
-    done | playground-sign $EVENT >> $SIGNER_DIR/out 2>&1
 }
 
 
@@ -332,8 +310,8 @@ repo_merge()
     EVENT=$1
 
     # update repo from upstream and merge the event branch
+    git_repo switch --quiet main
     git_repo fetch --quiet origin
-    git_repo pull --quiet
     git_repo merge --quiet origin/$EVENT
 
     # run playground-status to check that all is ok
@@ -349,13 +327,15 @@ repo_status_fail()
 
     # update repo from upstream and merge the event branch
     git_repo fetch --quiet origin
-    git_repo checkout --quiet origin/$EVENT
+    git_repo checkout --quiet $EVENT
+    git_repo pull --quiet
 
     # run playground-status, expect failure
+    # Note that playground-status may make a commit (to modify targets metadata) even if end result is failure
     # TODO: check output for specifics
     cd $REPO_GIT
+
     if playground-status >> $REPO_DIR/out; then
-        echo "Unexpected status success"
         return 1
     fi
     git_repo checkout --quiet main
@@ -363,9 +343,12 @@ repo_status_fail()
 
 repo_snapshot()
 {
+    git_repo switch --quiet main
+    git_repo pull --quiet
+
     cd $REPO_GIT
 
-    git_repo pull --quiet
+
     if LOCAL_TESTING_KEY=$ONLINE_KEY playground-snapshot --push $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
         echo "generated=true" >> $REPO_DIR/out
     else
@@ -375,9 +358,11 @@ repo_snapshot()
 
 repo_bump_versions()
 {
+    git_repo switch --quiet main
+    git_repo pull --quiet
+
     cd $REPO_GIT
 
-    git_repo pull --quiet
     if LOCAL_TESTING_KEY=$ONLINE_KEY playground-bump-online --push $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
         echo "generated=true" >> $REPO_DIR/out
     else
@@ -510,10 +495,16 @@ test_target_changes()
     repo_snapshot
 
     # This section modifies targets in a new signing event
-    # user1: Add two targets. Sign
-    signer_add_targets_and_sign user1 sign/new-targets
-    # user2: delete one target, modify another. Sign
-    signer_modify_targets_and_sign user2 sign/new-targets
+    # User 1 adds target files, repository modifies metadata, user 1 signs
+    signer_add_targets user1 sign/new-targets
+    repo_status_fail sign/new-targets
+    signer_sign user1 sign/new-targets
+
+    # user2: delete one target, modify another. repo modifies metadata, user2 signs 
+    signer_modify_targets user2 sign/new-targets
+    repo_status_fail sign/new-targets
+    signer_sign user2 sign/new-targets
+
     # user1: original signature is no longer valid: sign again
     signer_sign user1 sign/new-targets
 

@@ -14,7 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def _git(cmd: list[str]) -> subprocess.CompletedProcess:
-    cmd = ["git", "-c", "user.name=repository-playground", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com"] + cmd
+    cmd = [
+        "git",
+        "-c",
+        "user.name=repository-playground",
+        "-c",
+        "user.email=41898282+github-actions[bot]@users.noreply.github.com",
+    ] + cmd
     proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
     logger.debug("%s:\n%s", cmd, proc.stdout)
     return proc
@@ -24,7 +30,7 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
 @click.argument("publish-dir", required=False)
-def bump_online(verbose: int, push: bool, publish_dir: str|None) -> None:
+def bump_online(verbose: int, push: bool, publish_dir: str | None) -> None:
     """Commit new metadata versions for online roles if needed
 
     New versions will be signed.
@@ -54,7 +60,9 @@ def bump_online(verbose: int, push: bool, publish_dir: str|None) -> None:
         sys.exit(1)
 
     click.echo(msg)
-    _git(["commit", "-m", msg, "--", "metadata/timestamp.json", "metadata/snapshot.json"])
+    _git(
+        ["commit", "-m", msg, "--", "metadata/timestamp.json", "metadata/snapshot.json"]
+    )
     if push:
         _git(["push", "origin", "HEAD"])
 
@@ -78,12 +86,12 @@ def bump_offline(verbose: int, push: bool) -> None:
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
     repo = PlaygroundRepository("metadata")
-    events=[]
+    events = []
     for filename in glob("*.json", root_dir="metadata"):
         if filename in ["timestamp.json", "snapshot.json"]:
             continue
 
-        rolename = filename[:-len(".json")]
+        rolename = filename[: -len(".json")]
         version = repo.bump_expiring(rolename)
         if version is None:
             logging.debug("No version bump needed for %s", rolename)

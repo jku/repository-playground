@@ -111,27 +111,18 @@ Notes on remotes configured in `.playground-sign.ini`:
 
 ### Modify target files
 
-1. Make target file changes in the signing event git branch
-   * Choose a signing event name, create a branch
-     ```
-     git fetch origin
-     git switch -C sign/my-target-changes origin/main
-     ```
-   * Make changes with tools of your choosing:
-     ```
-     echo "test content" > targets/file.txt
-     git add targets/file.txt
-     git commit -m "Add a target file"
-     ```
-   * Submit changes to a signing event branch on the repository (by pushing to repository
-     or by using a PR to a signing event branch): This starts a signing event
-     ```
-     git push origin sign/my-target-changes
-     ```
-1. Update targets metadata
-   ```
-   playground-sign sign/my-target-changes
-   ```
+Make target file changes in the signing event git branch using tools and review processes
+of your choice.
+
+```
+git fetch origin
+git switch -C sign/my-target-changes origin/main
+echo "test content" > targets/file.txt
+git commit -m "Add a target file" -- targets/file.txt
+git push origin sign/my-target-changes
+```
+
+This starts a signing event (or updates an existing signing event).
 
 ### Sign changes made by others
 
