@@ -126,7 +126,7 @@ signer_init()
         ""                  # Configure root ? [enter to continue]
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "LOCAL_TESTING_KEY" # Enter key id
+        "4"                 # Enter key id
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
@@ -158,7 +158,7 @@ signer_init_shorter_snapshot_expiry()
         ""                  # Configure root ? [enter to continue]
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "LOCAL_TESTING_KEY" # Enter key id
+        "4"                 # Enter key id
         "3"                 # Configure online roles? [3: configure snapshot]
         "10"                # Enter expiry [10 days]
         "4"                 # Enter signing period [4 days]
@@ -196,7 +196,7 @@ signer_init_multiuser()
         "2"                 # Enter threshold
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "LOCAL_TESTING_KEY" # Enter key id
+        "4"                 # Enter key id
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
@@ -500,7 +500,7 @@ test_target_changes()
     repo_status_fail sign/new-targets
     signer_sign user1 sign/new-targets
 
-    # user2: delete one target, modify another. repo modifies metadata, user2 signs 
+    # user2: delete one target, modify another. repo modifies metadata, user2 signs
     signer_modify_targets user2 sign/new-targets
     repo_status_fail sign/new-targets
     signer_sign user2 sign/new-targets
