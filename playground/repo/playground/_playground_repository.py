@@ -256,7 +256,8 @@ class PlaygroundRepository(Repository):
 
         return True, None
 
-    def _build_targets(self, target_dir: str, rolename: str) -> dict[str, TargetFile]:
+    @staticmethod
+    def _build_targets(target_dir: str, rolename: str) -> dict[str, TargetFile]:
         """Build a roles dict of TargetFile based on target files in a directory"""
         targetfiles = {}
 
