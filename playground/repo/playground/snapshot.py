@@ -14,7 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def _git(cmd: list[str]) -> subprocess.CompletedProcess:
-    cmd = ["git", "-c", "user.name=repository-playground", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com"] + cmd
+    cmd = [
+        "git",
+        "-c",
+        "user.name=repository-playground",
+        "-c",
+        "user.email=41898282+github-actions[bot]@users.noreply.github.com",
+    ] + cmd
     proc = subprocess.run(cmd, check=True, text=True)
     logger.debug("%s:\n%s", cmd, proc.stdout)
     return proc
@@ -24,7 +30,7 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
 @click.argument("publish-dir", required=False)
-def snapshot(verbose: int, push: bool, publish_dir: str|None) -> None:
+def snapshot(verbose: int, push: bool, publish_dir: str | None) -> None:
     """Update The TUF snapshot based on current repository content
 
     Create a commit with the snapshot and timestamp changes (if any).

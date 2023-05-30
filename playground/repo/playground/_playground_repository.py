@@ -7,10 +7,25 @@ import logging
 import os
 import shutil
 from securesystemslib.exceptions import UnverifiedSignatureError
-from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME
+from securesystemslib.signer import (
+    Signature,
+    Signer,
+    SigstoreKey,
+    SigstoreSigner,
+    KEY_FOR_TYPE_AND_SCHEME,
+)
 from sigstore.oidc import detect_credential
 
-from tuf.api.metadata import Key, Metadata, MetaFile, Root, Snapshot, TargetFile, Targets, Timestamp
+from tuf.api.metadata import (
+    Key,
+    Metadata,
+    MetaFile,
+    Root,
+    Snapshot,
+    TargetFile,
+    Targets,
+    Timestamp,
+)
 from tuf.repository import AbortEdit, Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 
@@ -22,11 +37,12 @@ KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 
 logger = logging.getLogger(__name__)
 
+
 @unique
 class State(Enum):
-    ADDED = 0,
-    MODIFIED = 1,
-    REMOVED = 2,
+    ADDED = (0,)
+    MODIFIED = (1,)
+    REMOVED = (2,)
 
 
 @dataclass
@@ -40,7 +56,7 @@ class TargetState:
 
 @dataclass
 class SigningStatus:
-    invites: set[str] # invites to _delegations_ of the role
+    invites: set[str]  # invites to _delegations_ of the role
     signed: set[str]
     missing: set[str]
     threshold: int
@@ -48,8 +64,10 @@ class SigningStatus:
     valid: bool
     message: str | None
 
+
 class SigningEventState:
     """Class to manage the .signing-event-state file"""
+
     def __init__(self, file_path: str):
         self._file_path = file_path
         self._invites = {}
@@ -73,7 +91,8 @@ class PlaygroundRepository(Repository):
         dir: metadata directory to operate on
         prev_dir: optional known good repository directory
     """
-    def __init__(self, dir: str, prev_dir: str|None = None):
+
+    def __init__(self, dir: str, prev_dir: str | None = None):
         self._dir = dir
         self._prev_dir = prev_dir
 
@@ -86,7 +105,7 @@ class PlaygroundRepository(Repository):
     def _get_keys(self, role: str) -> list[Key]:
         """Return public keys for delegated role"""
         if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.root()
+            delegator: Root | Targets = self.root()
         else:
             delegator = self.targets()
 
@@ -99,7 +118,7 @@ class PlaygroundRepository(Repository):
                 pass
         return keys
 
-    def open(self, role:str) -> Metadata:
+    def open(self, role: str) -> Metadata:
         """Return existing metadata, or create new metadata
 
         This is an implementation of Repository.open()
@@ -125,7 +144,6 @@ class PlaygroundRepository(Repository):
 
         return md
 
-
     def signing_expiry_period(self, rolename: str) -> tuple[int, int]:
         """Extracts the signing and expiry period for a role
 
@@ -144,7 +162,6 @@ class PlaygroundRepository(Repository):
             signing_days = expiry_days // 2
 
         return (signing_days, expiry_days)
-
 
     def close(self, rolename: str, md: Metadata) -> None:
         """Write metadata to a file in repo dir
@@ -172,7 +189,7 @@ class PlaygroundRepository(Repository):
                 md.signatures[key.keyid] = Signature(key.keyid, "")
 
         if rolename in ["timestamp", "snapshot"]:
-            root_md:Metadata[Root] = self.open("root")
+            root_md: Metadata[Root] = self.open("root")
             # repository should never write unsigned online roles
             root_md.verify_delegate(rolename, md)
 
@@ -180,7 +197,6 @@ class PlaygroundRepository(Repository):
         data = md.to_bytes(JSONSerializer())
         with open(filename, "wb") as f:
             f.write(data)
-
 
     @property
     def targets_infos(self) -> dict[str, MetaFile]:
@@ -212,7 +228,7 @@ class PlaygroundRepository(Repository):
         """
         return MetaFile(self.snapshot().version)
 
-    def open_prev(self, role:str) -> Metadata | None:
+    def open_prev(self, role: str) -> Metadata | None:
         """Return known good metadata for role (if it exists)"""
         prev_fname = f"{self._prev_dir}/{role}.json"
         if os.path.exists(prev_fname):
@@ -221,7 +237,9 @@ class PlaygroundRepository(Repository):
 
         return None
 
-    def _validate_role(self, delegator: Metadata, rolename: str) -> tuple[bool, str | None]:
+    def _validate_role(
+        self, delegator: Metadata, rolename: str
+    ) -> tuple[bool, str | None]:
         """Validate role compatibility with this repository
 
         Returns bool for validity and optional error message"""
@@ -276,7 +294,9 @@ class PlaygroundRepository(Repository):
                 targetpath = fname
             else:
                 targetpath = f"{rolename}/{fname}"
-            targetfiles[targetpath] = TargetFile.from_file(targetpath, realpath, ["sha256"])
+            targetfiles[targetpath] = TargetFile.from_file(
+                targetpath, realpath, ["sha256"]
+            )
 
         return targetfiles
 
@@ -313,7 +333,6 @@ class PlaygroundRepository(Repository):
             changes.append(TargetState(targetfile, State.REMOVED))
 
         return changes
-
 
     def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
         """Build signing status for role.
@@ -356,7 +375,9 @@ class PlaygroundRepository(Repository):
         else:
             valid, msg = self._validate_role(delegator, rolename)
 
-        return SigningStatus(invites, sigs, missing_sigs, role.threshold, target_changes, valid, msg)
+        return SigningStatus(
+            invites, sigs, missing_sigs, role.threshold, target_changes, valid, msg
+        )
 
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
@@ -395,12 +416,12 @@ class PlaygroundRepository(Repository):
         dst_path = os.path.join(metadata_dir, f"{snapshot.version}.snapshot.json")
         shutil.copy(os.path.join(self._dir, "snapshot.json"), dst_path)
 
-        for filename, metafile  in snapshot.meta.items():
+        for filename, metafile in snapshot.meta.items():
             src_path = os.path.join(self._dir, filename)
             dst_path = os.path.join(metadata_dir, f"{metafile.version}.{filename}")
             shutil.copy(src_path, dst_path)
 
-            targets = self.targets(filename[:-len(".json")])
+            targets = self.targets(filename[: -len(".json")])
             for target in targets.targets.values():
                 parent, sep, name = target.path.rpartition("/")
                 os.makedirs(os.path.join(targets_dir, parent), exist_ok=True)
@@ -409,8 +430,7 @@ class PlaygroundRepository(Repository):
                     dst_path = os.path.join(targets_dir, parent, f"{hash}.{name}")
                     shutil.copy(src_path, dst_path)
 
-
-    def bump_expiring(self, rolename:str) -> int | None:
+    def bump_expiring(self, rolename: str) -> int | None:
         """Create a new version of role if it is about to expire"""
         now = datetime.utcnow()
         bumped = True
@@ -427,12 +447,13 @@ class PlaygroundRepository(Repository):
 
         return signed.version if bumped else None
 
-
     def update_targets(self, rolename: str) -> bool:
         if rolename in ["root", "timestamp", "snapshot"]:
             return False
-        
-        new_target_dict = self._build_targets(os.path.join(self._dir, "..", "targets"), rolename)
+
+        new_target_dict = self._build_targets(
+            os.path.join(self._dir, "..", "targets"), rolename
+        )
         with self.edit_targets(rolename) as targets:
             # if targets dict has no changes, cancel the metadata edit
             if targets.targets == new_target_dict:
