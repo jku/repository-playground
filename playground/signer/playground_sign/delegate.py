@@ -8,7 +8,13 @@ from urllib import parse
 import click
 import logging
 import os
-from securesystemslib.signer import GCPSigner, SigstoreKey, SSlibKey, KEY_FOR_TYPE_AND_SCHEME
+from securesystemslib.signer import (
+    AzureSigner,
+    GCPSigner,
+    KEY_FOR_TYPE_AND_SCHEME,
+    SSlibKey,
+    SigstoreKey,
+)
 
 from playground_sign._common import (
     bold,
@@ -96,7 +102,7 @@ def _get_repo_name(remote: str):
     # http urls on the other hand are not relative: remove the leading /
     return repo.lstrip("/")
 
-def _sigstore_import(pull_remote: str) -> list[ SigstoreKey]:
+def _sigstore_import(pull_remote: str) -> list[SigstoreKey]:
     # WORKAROUND: build sigstore key and uri here since there is no import yet
     issuer = "https://token.actions.githubusercontent.com"
     repo = _get_repo_name(pull_remote)
@@ -131,26 +137,7 @@ def _get_online_input(
         if choice == 0:
             break
         if choice == 1:
-            # TODO use value_proc argument to validate the input
-            key_id = click.prompt(
-                bold("Press enter to use Sigstore, or enter a Google Cloud KMS key id"),
-                default=""
-            )
-            if key_id == "LOCAL_TESTING_KEY":
-                # This could be generic support for env var keys... but for now is just for the one testing key
-                # the private key is 1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480
-                uri = "envvar:LOCAL_TESTING_KEY"
-                key = SSlibKey("fa47289", "ed25519", "ed25519", {"public": "fa472895c9756c2b9bcd1440bf867d0fa5c4edee79e9792fa9822be3dd6fcbb3"}, {"x-playground-online-uri": uri})
-                config.keys = [key]
-            elif key_id == "":
-                config.keys = _sigstore_import(user_config.pull_remote)
-            else:
-                try:
-                    uri, key = GCPSigner.import_(key_id)
-                    key.unrecognized_fields["x-playground-online-uri"] = uri
-                    config.keys = [key]
-                except Exception as e:
-                    raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+            config.keys = _collect_online_keys()
         if choice == 2:
             config.timestamp_expiry = click.prompt(
                 bold(f"Please enter timestamp expiry in days"),
@@ -175,6 +162,59 @@ def _get_online_input(
             )
 
     return config
+
+def _collect_online_keys() -> list[SSlibKey]:
+    # TODO use value_proc argument to validate the input
+
+    while True:
+        click.echo(
+            f" 1. Sigstore\n"
+            f" 2. Google Cloud KMS\n"
+            f" 3. Azure Key Vault"
+        )
+        choice = click.prompt(
+            bold("Please select online key type"),
+            type=click.IntRange(1, 4),
+            default=1,
+            show_default=True,
+        )
+        if choice == 1:
+            return _sigstore_import(user_config.pull_remote)
+        if choice == 2:
+            key_id = _collect_string("Enter a Google Cloud KMS key id")
+            try:
+                uri, key = GCPSigner.import_(key_id)
+                key.unrecognized_fields["x-playground-online-uri"] = uri
+                return [key]
+            except Exception as e:
+                raise click.ClickException(f"Failed to read Google Cloud KMS key: {e}")
+        if choice == 3:
+            vault_name = _collect_string("Enter Azure vault name")
+            key_name = _collect_string("Enter key name")
+            try:
+                uri, key = AzureSigner.import_(vault_name, key_name)
+                key.unrecognized_fields["x-playground-online-uri"] = uri
+                return [key]
+            except Exception as e:
+                raise click.ClickException(f"Failed to read Azure Keyvault key: {e}")
+        if choice == 4:
+            # This could be generic support for env var keys... but for now is just for the one testing key
+            # the private key is 1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480
+            uri = "envvar:LOCAL_TESTING_KEY"
+            key = SSlibKey("fa47289", "ed25519", "ed25519", {"public": "fa472895c9756c2b9bcd1440bf867d0fa5c4edee79e9792fa9822be3dd6fcbb3"}, {"x-playground-online-uri": uri})
+            return [key]
+
+
+def _collect_string(prompt: str) -> str:
+    while True:
+        data = click.prompt(
+            bold(prompt),
+            default=""
+        )
+        if data == "":
+            continue
+        else:
+            return data
 
 
 def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
