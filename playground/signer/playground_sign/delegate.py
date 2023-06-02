@@ -176,7 +176,7 @@ def _collect_online_keys() -> list[SSlibKey]:
             bold("Please select online key type"),
             type=click.IntRange(0, 4),
             default=0,
-            show_default=False,
+            show_default=True,
         )
         if choice == 0:
             continue
