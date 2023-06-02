@@ -126,7 +126,7 @@ signer_init()
         ""                  # Configure root ? [enter to continue]
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "4"                 # Enter key id
+        "4"                 # Enter online key type
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
@@ -158,7 +158,7 @@ signer_init_shorter_snapshot_expiry()
         ""                  # Configure root ? [enter to continue]
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "4"                 # Enter key id
+        "4"                 # Enter online key type
         "3"                 # Configure online roles? [3: configure snapshot]
         "10"                # Enter expiry [10 days]
         "4"                 # Enter signing period [4 days]
@@ -196,7 +196,7 @@ signer_init_multiuser()
         "2"                 # Enter threshold
         ""                  # Configure targets? [enter to continue]
         "1"                 # Configure online roles? [1: configure key]
-        "4"                 # Enter key id
+        "4"                 # Enter online key type
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter

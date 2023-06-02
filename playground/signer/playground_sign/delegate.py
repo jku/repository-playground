@@ -174,12 +174,10 @@ def _collect_online_keys() -> list[SSlibKey]:
         )
         choice = click.prompt(
             bold("Please select online key type"),
-            type=click.IntRange(0, 4),
-            default=0,
+            type=click.IntRange(1, 4),
+            default=1,
             show_default=True,
         )
-        if choice == 0:
-            continue
         if choice == 1:
             return _sigstore_import(user_config.pull_remote)
         if choice == 2:
