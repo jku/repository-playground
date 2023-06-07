@@ -2,15 +2,16 @@
 
 """Internal repository module for playground signer tool"""
 
-from collections import defaultdict
-from dataclasses import dataclass
-from enum import Enum, unique
+import click
 import filecmp
-from glob import glob
 import json
 import logging
 import os
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum, unique
+from glob import glob
 from typing import Callable
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME, SIGNER_FOR_URI_SCHEME
@@ -23,6 +24,7 @@ from tuf.repository import Repository, AbortEdit
 
 logger = logging.getLogger(__name__)
 
+# Enable experimental sigstore keys
 KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey
 SIGNER_FOR_URI_SCHEME[SigstoreSigner.SCHEME] = SigstoreSigner
 
@@ -50,6 +52,10 @@ class OfflineConfig:
     threshold: int
     expiry_period: int
     signing_period: int
+
+
+def blue(text: str) -> str:
+    return click.style(text, fg="bright_blue")
 
 
 def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str]:
@@ -137,6 +143,7 @@ class SignerRepository(Repository):
         return os.path.join(self._dir, "root_history", f"{version}.root.json")
 
     def _known_good_version(self, rolename: str) -> int:
+        """Return the version of `rolename` in the known-good repository state"""
         prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
@@ -185,6 +192,7 @@ class SignerRepository(Repository):
                 delegator = self._known_good_targets("targets")
             else:
                 delegator = self.targets()
+
         r = delegator.get_delegated_role(role)
         keys = []
         for keyid in r.keyids:
@@ -494,8 +502,128 @@ class SignerRepository(Repository):
         elif os.path.exists(state_file_path):
             os.remove(state_file_path)
 
+    def _role_status_lines(self, rolename: str) -> list[str]:
+        # Handle a custom metadata: expiry and signing period
+        output = []
+
+        if rolename == "root":
+            signed = self.root()
+            old_signed = self._known_good_root()
+        else:
+            signed = self.targets(rolename)
+            old_signed = self._known_good_targets(rolename)
+
+        expiry = signed.unrecognized_fields["x-playground-expiry-period"]
+        signing = signed.unrecognized_fields["x-playground-signing-period"]
+        old_expiry = old_signed.unrecognized_fields.get("x-playground-expiry-period")
+        old_signing = old_signed.unrecognized_fields.get("x-playground-signing-period")
+
+        output.append(blue(f"{rolename} v{signed.version}"))
+
+        if expiry != old_expiry or signing != old_signing:
+            output.append(f" * Expiry period: {expiry} days, signing period: {signing} days")
+            if signed.version != 1:
+                output.append(f"   (expiry period was {old_expiry} days, signing period was {old_signing} days")
+
+        return output
+
+    def _delegation_status_lines(self, rolename: str) -> list[str]:
+        """Return information about delegation changes"""
+        # NOTE key content changes are currently not noticed
+        # (think keyid staying the same but public key bytes changing)
+
+        output = []
+        delegations = {}
+        old_delegations = {}
+
+        # Find delegations for both signing event and known-good state
+        if rolename == "root":
+            signed = self.root()
+            delegations = signed.roles
+            old_signed = self._known_good_root()
+            old_delegations = old_signed.roles
+
+            # Use timestamp output for both snapshot and timestamp: NOTE: we should validate that
+            # the delegations really are identical
+            delegations.pop("snapshot")
+            old_delegations.pop("snapshot", None)
+        else:
+            signed = self.targets(rolename)
+            if signed.delegations and signed.delegations.roles:
+                delegations = signed.delegations.roles
+
+            old_signed = self._known_good_targets(rolename)
+            if old_signed.delegations and old_signed.delegations.roles:
+                old_delegations = old_signed.delegations.roles
+
+        # Produce description of changes (New/Modified/Removed)
+        for name, role in delegations.items():
+            if name == "timestamp":
+                title = "online delegations timestamp & snapshot"
+            else:
+                title = f"delegation {name}"
+
+            signers = []
+            for key in self._get_keys(name):
+                if name in ["timestamp"]:
+                    # there's no "signer" in the online case: just use signing system as signer
+                    uri = key.unrecognized_fields["x-playground-online-uri"]
+                    signers.append(uri.split(":")[0])
+                else:
+                    signers.append(key.unrecognized_fields["x-playground-keyowner"])
+
+            if name not in old_delegations:
+                output.append(f" * New {title}")
+                output.append(f"   * Signers: {role.threshold}/{len(signers)} of {signers}")
+            else:
+                old_role = old_delegations[name]
+                old_signers = []
+                for key in self._get_keys(name, known_good=True):
+                    old_signers.append(key.unrecognized_fields["x-playground-keyowner"])
+
+                if role != old_role:
+                    output.append(f" * Modified {title}")
+                    output.append(f"   * Signers: {role.threshold}/{len(signers)} of {signers}")
+                    output.append(f"     (was: {old_role.threshold}/{len(old_signers)} of {old_signers}")
+                del old_delegations[name]
+
+        for name in old_delegations:
+            output.append(f" * Removed {title}")
+
+        return output
+
+    def _artifact_status_lines(self, rolename: str) -> list[str]:
+        if rolename == "root":
+            return []
+
+        output = []
+        old_artifacts = self._known_good_targets(rolename).targets
+        artifacts = self.targets(rolename).targets
+        for artifact in artifacts.values():
+            if artifact.path not in old_artifacts:
+                output.append(f" * New artifact '{artifact.path}'")
+            else:
+                if artifact != old_artifacts[artifact.path]:
+                    output.append(f" * Modified artifact '{artifact.path}'")
+                del old_artifacts[artifact.path]
+        for removed_artifact in old_artifacts.values():
+            output.append(f" * Removed artifact '{removed_artifact.path}'")
+
+        return output
+
     def status(self, rolename: str) -> str:
-        return "TODO: Describe the changes in the signing event for this role"
+        if rolename in ["timestamp", "snapshot"]:
+            raise ValueError("Cannot handle changes in online roles")
+
+        output = [""]
+
+        # TODO validate what we can: see issue #95
+
+        output.extend(self._role_status_lines(rolename))
+        output.extend(self._delegation_status_lines(rolename))
+        output.extend(self._artifact_status_lines(rolename))
+
+        return "\n".join(output)
 
     def sign(self, rolename: str):
         """Sign without payload changes"""

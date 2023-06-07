@@ -110,7 +110,12 @@ def get_signing_key_input() -> Key:
 
 
 def get_secret_input(secret: str, role: str) -> str:
-    msg = f"Enter {secret} to sign {role}"
+    # TODO: Fix this so it prints role as well
+    # This currently has an issue when it's called from
+    # SignerRepository._sign(): The role name is always whatever the first calls argument was...
+    # It seems like the role variable becomes part of the closure in _sign() somehow and then
+    # the role value gets reused in later calls.
+    msg = f"Enter {secret} to sign"
 
     # special case for tests -- prompt() will lockup trying to hide STDIN:
     if not sys.stdin.isatty():
@@ -138,3 +143,6 @@ def git_echo(cmd: list[str]):
 
 def bold(text: str) -> str:
     return click.style(text, bold=True)
+
+def bold_blue(text: str) -> str:
+    return click.style(text, bold=True, fg="bright_blue")

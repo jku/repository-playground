@@ -8,6 +8,7 @@ import os
 
 from playground_sign._common import (
     bold,
+    bold_blue,
     get_signing_key_input,
     git_expect,
     git_echo,
@@ -31,6 +32,8 @@ def sign(verbose: int, push: bool, event_name: str):
     user_config = SignerConfig(settings_path)
 
     with signing_event(event_name, user_config) as repo:
+        git_hash = git_expect(["rev-parse", "HEAD"])
+        click.echo(bold_blue(f"Signing event {event_name} (commit {git_hash[:7]})"))
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
