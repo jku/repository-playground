@@ -324,9 +324,14 @@ class PlaygroundRepository(Repository):
         known_good_targetfiles = self._known_good_targets(rolename).targets
         for targetfile in self.targets(rolename).targets.values():
             if targetfile.path not in known_good_targetfiles:
+                # new in signing event
                 changes.append(TargetState(targetfile, State.ADDED))
             elif targetfile != known_good_targetfiles[targetfile.path]:
+                # changed in signing event
                 changes.append(TargetState(targetfile, State.MODIFIED))
+                del known_good_targetfiles[targetfile.path]
+            else:
+                # no changes in signing event
                 del known_good_targetfiles[targetfile.path]
 
         for targetfile in known_good_targetfiles.values():
