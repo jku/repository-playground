@@ -65,6 +65,9 @@ def _find_changed_target_roles(
     for filepath in files:
         f1 = os.path.join(targets_dir, filepath)
         f2 = os.path.join(known_good_targets_dir, filepath)
+        if os.path.isdir(f1) and os.path.isdir(f2):
+            continue
+
         try:
             if filecmp.cmp(f1, f2, shallow=False):
                 continue
@@ -178,7 +181,6 @@ def status(verbose: int, push: bool) -> None:
             _find_changed_roles(good_metadata, "metadata")
             | _find_changed_target_roles(good_targets, "targets")
         )
-
         # reorder, toplevels first
         for toplevel in ["targets", "root"]:
             if toplevel in roles:
