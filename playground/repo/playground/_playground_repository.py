@@ -343,14 +343,15 @@ class PlaygroundRepository(Repository):
         invites = set()
         sigs = set()
         missing_sigs = set()
+        md = self.open(rolename)
 
         # Build list of invites to all delegated roles of rolename
         delegation_names = []
         if rolename == "root":
             delegation_names = ["root", "targets"]
         elif rolename == "targets":
-            if delegator.signed.delegations:
-                delegation_names = delegator.signed.delegations.roles.keys()
+            if md.signed.delegations:
+                delegation_names = md.signed.delegations.roles.keys()
         for delegation_name in delegation_names:
             invites.update(self._state.invited_signers_for_role(delegation_name))
 
