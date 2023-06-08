@@ -233,7 +233,8 @@ class PlaygroundRepository(Repository):
         prev_fname = f"{self._prev_dir}/{role}.json"
         if os.path.exists(prev_fname):
             with open(prev_fname, "rb") as f:
-                return Metadata.from_bytes(f.read())
+                rb = f.read()
+                return Metadata.from_bytes(rb)
 
         return None
 
@@ -342,28 +343,35 @@ class PlaygroundRepository(Repository):
         invites = set()
         sigs = set()
         missing_sigs = set()
-        md = self.open(rolename)
 
         # Build list of invites to all delegated roles of rolename
         delegation_names = []
         if rolename == "root":
             delegation_names = ["root", "targets"]
         elif rolename == "targets":
-            if md.signed.delegations:
-                delegation_names = md.signed.delegations.roles.keys()
+            if delegator.signed.delegations:
+                delegation_names = delegator.signed.delegations.roles.keys()
         for delegation_name in delegation_names:
             invites.update(self._state.invited_signers_for_role(delegation_name))
 
         role = delegator.signed.get_delegated_role(rolename)
+        keys = []
+        for keyid in role.keyids:
+            try:
+                keys.append(delegator.signed.get_key(keyid))
+            except ValueError:
+                pass
 
+        payload = CanonicalJSONSerializer().serialize(delegator.signed)
         # Build lists of signed signers and not signed signers
-        for key in self._get_keys(rolename):
+        for key in keys:
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
             try:
-                payload = CanonicalJSONSerializer().serialize(md.signed)
-                key.verify_signature(md.signatures[key.keyid], payload)
+                key.verify_signature(delegator.signatures[key.keyid], payload)
                 sigs.add(keyowner)
-            except (KeyError, UnverifiedSignatureError):
+            except UnverifiedSignatureError:
+                missing_sigs.add(keyowner)
+            except KeyError:
                 missing_sigs.add(keyowner)
 
         # Document changes to targets metadata in this signing event
@@ -401,7 +409,8 @@ class PlaygroundRepository(Repository):
         else:
             delegator = self.open("targets")
 
-        return self._get_signing_status(delegator, rolename), prev_status
+        curr = self._get_signing_status(delegator, rolename)
+        return curr, prev_status
 
     def publish(self, directory: str):
         metadata_dir = os.path.join(directory, "metadata")
