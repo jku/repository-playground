@@ -215,15 +215,17 @@ class SignerRepository(Repository):
         return md
 
     def close(self, role: str, md: Metadata) -> None:
-        """Write metadata to a file in the repository directory"""
+        """Write metadata to a file in the repository directory
+        
+        Note that resulting metadata is not signed and all existing
+        signatures are removed.
+        """
         # Make sure version is bumped only once per signing event
         md.signed.version = self._known_good_version(role) + 1
 
         # Set expiry based on custom metadata
         days = md.signed.unrecognized_fields["x-playground-expiry-period"]
         md.signed.expires = datetime.utcnow() + timedelta(days=days)
-
-        md.signatures.clear()
 
         # figure out if there are open invites to delegations of this role
         open_invites = False
@@ -234,16 +236,33 @@ class SignerRepository(Repository):
                     open_invites = True
                     break
 
-        for key in self._get_keys(role):
+        keys = self._get_keys(role)
+        if role == "root":
+            # special case: root includes its own signing keys. We want
+            # to handle both old root keys and  new keys from the metadata
+            # we are storing
+            # TODO: Make sure the "old" keys are from known good metadata
+
+            assert isinstance(md.signed, Root)
+            r = md.signed.get_delegated_role("root")
+            for keyid in r.keyids:
+                duplicate = False
+                for key in keys:
+                    if keyid == key.keyid:
+                        duplicate = True
+                if not duplicate:
+                    keys.append(md.signed.get_key(keyid))
+
+        # wipe signatures
+        md.signatures.clear()
+        for key in keys:
+            md.signatures[key.keyid] = Signature(key.keyid, "")
+
+            # Mark role as unsigned if user is a signer
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name and open_invites:
-                logger.debug("Skipping signing: there are open invites")
-                md.signatures[key.keyid] = Signature(key.keyid, "")
-            elif keyowner == self.user_name:
-                self._sign(role, md, key)
-            else:
-                # add empty signature for other signers
-                md.signatures[key.keyid] = Signature(key.keyid, "")
+            if keyowner == self.user_name:
+                if role not in self.unsigned:
+                    self.unsigned.append(role)
 
         self._write(role, md)
 

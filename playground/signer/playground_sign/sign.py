@@ -44,10 +44,10 @@ def sign(verbose: int, push: bool, event_name: str):
                 repo.set_role_config(rolename, role_config, key)
 
                 # Sign the role we are now a signer for
-                if rolename != "root":
-                    repo.sign(rolename)
+                if rolename != "root" and rolename not in repo.unsigned:
+                    repo.unsigned.append(rolename)
 
-            # Sign any other roles we may be asked to sign at the same time
+            # Sign everything
             if repo.unsigned:
                 click.echo(f"Your signature is requested for role(s) {repo.unsigned}.")
                 for rolename in repo.unsigned:
