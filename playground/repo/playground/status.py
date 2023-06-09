@@ -12,7 +12,7 @@ from urllib import parse
 import click
 import logging
 
-from playground._playground_repository import PlaygroundRepository
+from playground._playground_repository import PlaygroundRepository, SigningEventState
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,9 @@ def _find_changed_target_roles(
     for filepath in files:
         f1 = os.path.join(targets_dir, filepath)
         f2 = os.path.join(known_good_targets_dir, filepath)
+        if os.path.isdir(f1) and os.path.isdir(f2):
+            continue
+
         try:
             if filecmp.cmp(f1, f2, shallow=False):
                 continue
@@ -174,17 +177,19 @@ def status(verbose: int, push: bool) -> None:
         # Print status for each role, count invalid roles
         repo = PlaygroundRepository("metadata", good_metadata)
 
+        # first create a list of roles that have metadata changes, artifact changes or delegation invites
         roles = list(
             _find_changed_roles(good_metadata, "metadata")
             | _find_changed_target_roles(good_targets, "targets")
+            | repo.state.roles_with_delegation_invites()
         )
-
         # reorder, toplevels first
         for toplevel in ["targets", "root"]:
             if toplevel in roles:
                 roles.remove(toplevel)
                 roles.insert(0, toplevel)
 
+        # If artifact metadata needs an update, do that. Then output the roles current status
         for role in roles:
             if repo.update_targets(role):
                 # metadata and target content are not in sync: make a commit with metadata changes

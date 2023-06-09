@@ -70,7 +70,7 @@ class SigningEventState:
 
     def __init__(self, file_path: str):
         self._file_path = file_path
-        self._invites = {}
+        self._invites: dict[str, list[str]] = {}
         if os.path.exists(file_path):
             with open(file_path) as f:
                 data = json.load(f)
@@ -82,6 +82,16 @@ class SigningEventState:
             if rolename in invited_rolenames:
                 signers.append(invited_signer)
         return signers
+
+    def roles_with_delegation_invites(self) -> set[str]:
+        roles = set()
+        for invitee_roles in self._invites.values():
+            for role in invitee_roles:
+                if role in ["root", "targets"]:
+                    roles.add("root")
+                else:
+                    roles.add("targets")
+        return roles
 
 
 class PlaygroundRepository(Repository):
@@ -97,7 +107,7 @@ class PlaygroundRepository(Repository):
         self._prev_dir = prev_dir
 
         # read signing event state file
-        self._state = SigningEventState(os.path.join(self._dir, ".signing-event-state"))
+        self.state = SigningEventState(os.path.join(self._dir, ".signing-event-state"))
 
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
@@ -324,9 +334,14 @@ class PlaygroundRepository(Repository):
         known_good_targetfiles = self._known_good_targets(rolename).targets
         for targetfile in self.targets(rolename).targets.values():
             if targetfile.path not in known_good_targetfiles:
+                # new in signing event
                 changes.append(TargetState(targetfile, State.ADDED))
             elif targetfile != known_good_targetfiles[targetfile.path]:
+                # changed in signing event
                 changes.append(TargetState(targetfile, State.MODIFIED))
+                del known_good_targetfiles[targetfile.path]
+            else:
+                # no changes in signing event
                 del known_good_targetfiles[targetfile.path]
 
         for targetfile in known_good_targetfiles.values():
@@ -352,7 +367,7 @@ class PlaygroundRepository(Repository):
             if md.signed.delegations:
                 delegation_names = md.signed.delegations.roles.keys()
         for delegation_name in delegation_names:
-            invites.update(self._state.invited_signers_for_role(delegation_name))
+            invites.update(self.state.invited_signers_for_role(delegation_name))
 
         role = delegator.signed.get_delegated_role(rolename)
 
