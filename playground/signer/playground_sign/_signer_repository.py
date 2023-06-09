@@ -532,6 +532,13 @@ class SignerRepository(Repository):
         # NOTE key content changes are currently not noticed
         # (think keyid staying the same but public key bytes changing)
 
+        def _get_signer_name(key: Key) -> str:
+            if name in ["timestamp", "snapshot"]:
+                # there's no "signer" in the online case: just use signing system as signer
+                uri = key.unrecognized_fields["x-playground-online-uri"]
+                return uri.split(":")[0]
+            return key.unrecognized_fields["x-playground-keyowner"]
+
         output = []
         delegations = {}
         old_delegations = {}
@@ -565,12 +572,7 @@ class SignerRepository(Repository):
 
             signers = []
             for key in self._get_keys(name):
-                if name in ["timestamp"]:
-                    # there's no "signer" in the online case: just use signing system as signer
-                    uri = key.unrecognized_fields["x-playground-online-uri"]
-                    signers.append(uri.split(":")[0])
-                else:
-                    signers.append(key.unrecognized_fields["x-playground-keyowner"])
+                signers.append(_get_signer_name(key))
 
             if name not in old_delegations:
                 output.append(f" * New {title}")
@@ -579,7 +581,7 @@ class SignerRepository(Repository):
                 old_role = old_delegations[name]
                 old_signers = []
                 for key in self._get_keys(name, known_good=True):
-                    old_signers.append(key.unrecognized_fields["x-playground-keyowner"])
+                    old_signers.append(_get_signer_name(key))
 
                 if role != old_role:
                     output.append(f" * Modified {title}")
