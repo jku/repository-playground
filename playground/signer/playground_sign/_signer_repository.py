@@ -145,13 +145,46 @@ class SignerRepository(Repository):
 
         return 0
 
-    def _get_keys(self, role: str) -> list[Key]:
-        """Return public keys for delegated role"""
-        if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.root()
+    def _known_good_root(self) -> Root:
+        """Return the Root object from the known-good repository state"""
+        prev_path = os.path.join(self._prev_dir, f"root.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Root)
+            return md.signed
         else:
-            delegator = self.targets()
+            # this role did not exist: return an empty one for comparison purposes
+            return Root()
 
+    def _known_good_targets(self, rolename: str) -> Targets:
+        """Return a Targets object from the known-good repository state"""
+        prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Targets)
+            return md.signed
+        else:
+            # this role did not exist: return an empty one for comparison purposes
+            return Targets()
+
+    def _get_keys(self, role: str, known_good:bool = False) -> list[Key]:
+        """Return public keys for delegated role
+
+        If known_good is True, use the keys defined in known good delegator.
+        Otherwise use keys defined in the signing event delegator.
+        """
+        if role in ["root", "timestamp", "snapshot", "targets"]:
+            if known_good:
+                delegator: Root | Targets = self._known_good_root()
+            else:
+                delegator = self.root()
+        else:
+            if known_good:
+                delegator = self._known_good_targets("targets")
+            else:
+                delegator = self.targets()
         r = delegator.get_delegated_role(role)
         keys = []
         for keyid in r.keyids:
@@ -236,12 +269,11 @@ class SignerRepository(Repository):
                     open_invites = True
                     break
 
-        keys = self._get_keys(role)
         if role == "root":
             # special case: root includes its own signing keys. We want
-            # to handle both old root keys and  new keys from the metadata
-            # we are storing
-            # TODO: Make sure the "old" keys are from known good metadata
+            # to handle both old root keys (from known good version) and
+            # new keys from the root version we are storing
+            keys = self._get_keys(role, True)
 
             assert isinstance(md.signed, Root)
             r = md.signed.get_delegated_role("root")
@@ -252,6 +284,10 @@ class SignerRepository(Repository):
                         duplicate = True
                 if not duplicate:
                     keys.append(md.signed.get_key(keyid))
+        else:
+            # for all other roles we can use the keys defined in
+            # signing event
+            keys = self._get_keys(role)
 
         # wipe signatures
         md.signatures.clear()
