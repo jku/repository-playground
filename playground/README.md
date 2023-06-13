@@ -186,7 +186,7 @@ Status: Implemented in the playground-template project. Workflows include
 * snapshot
 * version-bumps
 
-See [https://github.com/jku/playground-template]
+See [here](https://github.com/jku/playground-template).
 
 ### Repository actions
 
