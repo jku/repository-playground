@@ -462,6 +462,11 @@ class SignerRepository(Repository):
                 self._invites[self.user_name].remove(rolename)
                 if not self._invites[self.user_name]:
                     del self._invites[self.user_name]
+
+                # Add role to unsigned list even if the role itself does not change
+                if rolename not in self.unsigned:
+                    self.unsigned.append(rolename)
+
                 changed = True
 
             if role.threshold != config.threshold:
