@@ -548,7 +548,9 @@ class SignerRepository(Repository):
             signed = self.root()
             delegations = signed.roles
             old_signed = self._known_good_root()
-            old_delegations = old_signed.roles
+            # avoid using the default delegations for initial old_delegations
+            if signed.version > 1:
+                old_delegations = old_signed.roles
 
             # Use timestamp output for both snapshot and timestamp: NOTE: we should validate that
             # the delegations really are identical
