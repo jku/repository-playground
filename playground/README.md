@@ -93,7 +93,7 @@ If you intend to use a Cloud KMS for online signing (instead of the default
            permissions:
              id-token: 'write' # for OIDC identity access
              contents: 'write' # for committing snapshot/timestamp changes
-...
+           ...
            steps:
              - name: Login to Azure
                uses: azure/login@v1
@@ -103,7 +103,7 @@ If you intend to use a Cloud KMS for online signing (instead of the default
                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
              - id: snapshot
                uses: jku/repository-playground/playground/actions/snapshot@main
-...
+         ...
          deploy:
 
        ```
