@@ -295,12 +295,21 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
                 changed =  _update_offline_role(repo, role)
 
         if changed:
-            git_expect(["add", "metadata/"])
             if role:
                 msg = f"'{role}' role/delegation change"
             else:
                 msg = "Initial offline metadata"
+            git_expect(["add", "metadata/"])
             git_expect(["commit", "-m", msg, "--", "metadata"])
+
+            if repo.unsigned:
+                for rolename in repo.unsigned:
+                    click.echo(repo.status(rolename))
+                    repo.sign(rolename)
+
+                git_expect(["add", "metadata/"])
+                git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
+
             if push:
                 msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
                 click.prompt(bold(msg), default=True, show_default=False)

@@ -131,9 +131,7 @@ signer_init()
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign root
-        "0000"              # sign root
         "0000"              # sign targets
-        "0000"              # sign root
         ""                  # press enter to push
     )
 
@@ -166,9 +164,7 @@ signer_init_shorter_snapshot_expiry()
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign root
-        "0000"              # sign root
         "0000"              # sign targets
-        "0000"              # sign root
         ""                  # press enter to push
     )
 
@@ -201,7 +197,7 @@ signer_init_multiuser()
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
         "0000"              # sign root
-        "0000"              # sign root
+        "0000"              # sign targets
         ""                  # press enter to push
     )
 
@@ -225,7 +221,6 @@ signer_accept_invite()
     INPUT=(
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW and press enter
-        "0000"              # sign targets
         "0000"              # sign targets
         ""                  # press enter to push
     )

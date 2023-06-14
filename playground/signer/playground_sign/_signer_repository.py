@@ -145,13 +145,46 @@ class SignerRepository(Repository):
 
         return 0
 
-    def _get_keys(self, role: str) -> list[Key]:
-        """Return public keys for delegated role"""
-        if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root|Targets = self.root()
+    def _known_good_root(self) -> Root:
+        """Return the Root object from the known-good repository state"""
+        prev_path = os.path.join(self._prev_dir, f"root.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Root)
+            return md.signed
         else:
-            delegator = self.targets()
+            # this role did not exist: return an empty one for comparison purposes
+            return Root()
 
+    def _known_good_targets(self, rolename: str) -> Targets:
+        """Return a Targets object from the known-good repository state"""
+        prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Targets)
+            return md.signed
+        else:
+            # this role did not exist: return an empty one for comparison purposes
+            return Targets()
+
+    def _get_keys(self, role: str, known_good:bool = False) -> list[Key]:
+        """Return public keys for delegated role
+
+        If known_good is True, use the keys defined in known good delegator.
+        Otherwise use keys defined in the signing event delegator.
+        """
+        if role in ["root", "timestamp", "snapshot", "targets"]:
+            if known_good:
+                delegator: Root | Targets = self._known_good_root()
+            else:
+                delegator = self.root()
+        else:
+            if known_good:
+                delegator = self._known_good_targets("targets")
+            else:
+                delegator = self.targets()
         r = delegator.get_delegated_role(role)
         keys = []
         for keyid in r.keyids:
@@ -215,15 +248,17 @@ class SignerRepository(Repository):
         return md
 
     def close(self, role: str, md: Metadata) -> None:
-        """Write metadata to a file in the repository directory"""
+        """Write metadata to a file in the repository directory
+        
+        Note that resulting metadata is not signed and all existing
+        signatures are removed.
+        """
         # Make sure version is bumped only once per signing event
         md.signed.version = self._known_good_version(role) + 1
 
         # Set expiry based on custom metadata
         days = md.signed.unrecognized_fields["x-playground-expiry-period"]
         md.signed.expires = datetime.utcnow() + timedelta(days=days)
-
-        md.signatures.clear()
 
         # figure out if there are open invites to delegations of this role
         open_invites = False
@@ -234,16 +269,36 @@ class SignerRepository(Repository):
                     open_invites = True
                     break
 
-        for key in self._get_keys(role):
+        if role == "root":
+            # special case: root includes its own signing keys. We want
+            # to handle both old root keys (from known good version) and
+            # new keys from the root version we are storing
+            keys = self._get_keys(role, True)
+
+            assert isinstance(md.signed, Root)
+            r = md.signed.get_delegated_role("root")
+            for keyid in r.keyids:
+                duplicate = False
+                for key in keys:
+                    if keyid == key.keyid:
+                        duplicate = True
+                if not duplicate:
+                    keys.append(md.signed.get_key(keyid))
+        else:
+            # for all other roles we can use the keys defined in
+            # signing event
+            keys = self._get_keys(role)
+
+        # wipe signatures
+        md.signatures.clear()
+        for key in keys:
+            md.signatures[key.keyid] = Signature(key.keyid, "")
+
+            # Mark role as unsigned if user is a signer
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name and open_invites:
-                logger.debug("Skipping signing: there are open invites")
-                md.signatures[key.keyid] = Signature(key.keyid, "")
-            elif keyowner == self.user_name:
-                self._sign(role, md, key)
-            else:
-                # add empty signature for other signers
-                md.signatures[key.keyid] = Signature(key.keyid, "")
+            if keyowner == self.user_name:
+                if role not in self.unsigned:
+                    self.unsigned.append(role)
 
         self._write(role, md)
 
@@ -407,6 +462,11 @@ class SignerRepository(Repository):
                 self._invites[self.user_name].remove(rolename)
                 if not self._invites[self.user_name]:
                     del self._invites[self.user_name]
+
+                # Add role to unsigned list even if the role itself does not change
+                if rolename not in self.unsigned:
+                    self.unsigned.append(rolename)
+
                 changed = True
 
             if role.threshold != config.threshold:
