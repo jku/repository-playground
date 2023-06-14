@@ -264,19 +264,7 @@ Please choose an option or press enter to continue:
 ```
 
 Once finished the changes are pushed to the branch `<event-name>`
-which in the above example is `sign/add-fakueuser-2`. The status of
-this can be viewed locally by checking out the event branch, and then
-running `playground-status`:
-
-```shell
-$ playground-status
-### Current signing event state
-Event [sign/add-fakeuser-1](../compare/sign/add-fakeuser-1)
-#### :x: root
-root delegations have open invites (@-fakeuser-2).
-Invitees can accept the invitations by running `playground-sign add-fakeuser-2`
-$
-```
+which in the above example is `sign/add-fakueuser-2`.
 
 By naming the event with `sign/<event-name>` automation will pick up
 this branch and run the [signing
@@ -297,19 +285,6 @@ When adding or changing root signer, remember that a quorum of
 _current_ key-holders **must** sign the updated root metadata for it
 to be valid.
 
-During any time of the signing event, the status can be queried via
-`playground-status` command:
-
-```shell
-playground-status
-### Current signing event state
-Event [sign/add-fakeuser-2](../compare/sign/add-fakeuser-2)
-#### :x: root
-root is unsigned and not yet verified
-Still missing signatures from @-fakeuser-1, @-fakeuser-2
-Signers can sign these changes by running `playground-sign add-fakeuser-2`
-```
-
 ### Removing a signer
 
 To remove a signer, follow the steps when adding a signer. When
@@ -329,23 +304,38 @@ $ echo file1 > targets/file1.txt
 $ echo file2 > targets/file2.txt
 ```
 
-Via `playground-status` the state of the repository can now be viewed:
+The branch can now be pushed to `origin` and an issue will be created
+that tracks the changes and the required signaturesby the correct key
+holders.
+
+Run the `playground-sign <event-name>` command to sign the metadata
+and push the branch to `origin`, once pushed, and signed by all key
+holders create a PR and merge. The snapshot workflow will then run an
+publish the repository for consumption.
+
+## Debug tools
+
+The same tool (`playground-status`) that runs during the automation
+can be run locally too to inspect the current status of a branch
+(signing event).
+
+To install the repository tools, run pip install from the
+playground/repo directory where the
+[pyproject.toml](repo/pyproject.toml) file exists:
+
+```shell
+$ pip install -e .
+```
+
+As an example, this would be the output when an open invitation exists
+for a new user to become a root key holder:
 
 ```shell
 $ playground-status
 ### Current signing event state
-Event [sign/add-targets](../compare/sign/add-targets)
-#### :x: targets
-targets contains following target file changes:
- * file1.txt: ADDED
- * file2.txt: ADDED
-
-targets is unsigned and not yet verified
-Still missing signatures from @-fakeuser-1
-Signers can sign these changes by running `playground-sign sign/add-targets`
+Event [sign/add-fakeuser-1](../compare/sign/add-fakeuser-1)
+#### :x: root
+root delegations have open invites (@-fakeuser-2).
+Invitees can accept the invitations by running `playground-sign add-fakeuser-2`
+$
 ```
-
-Run the `playground-sign <event-name>` command to sign the metadata
-and push the branch to `origin`, once pushed, create a PR and
-merge. The snapshot workflow will then run an publish the repository
-for consumption.
