@@ -320,7 +320,7 @@ can be run locally too to inspect the current status of a branch
 (signing event).
 
 To install the repository tools, run pip install from the
-playground/repo directory where the
+`playground/repo` directory where the
 [pyproject.toml](repo/pyproject.toml) file exists:
 
 ```shell
