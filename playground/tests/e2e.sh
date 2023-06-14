@@ -299,6 +299,31 @@ signer_modify_targets()
     git push --quiet origin $EVENT
 }
 
+non_signer_change_online_delegation()
+{
+    # run playground-delegate: creates a commit, pushes it to remote branch
+    # this is called by someone who is not a root signer
+    USER=$1
+    EVENT=$2
+
+    SIGNER_DIR="$WORK_DIR/$TEST_NAME/$USER"
+    SIGNER_GIT="$SIGNER_DIR/git"
+    export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
+
+    INPUT=(
+        "2"                 # Configure online roles? [2: configure timestamp]
+        "5"                 # timestamp expiry in days
+        ""                  # timestamp signing period in days
+        ""                  # Configure online roles? [Enter to continue]
+        ""                  # press enter to push
+    )
+
+    cd $SIGNER_GIT
+
+    for line in "${INPUT[@]}"; do
+        echo $line
+    done | playground-delegate $EVENT timestamp >> $SIGNER_DIR/out 2>&1
+}
 
 repo_merge()
 {
@@ -458,6 +483,17 @@ test_multi_user_signing()
     repo_merge sign/initial
     repo_snapshot
 
+    # New signing event: Change online delegation
+    non_signer_change_online_delegation user2 sign/change-online
+    repo_status_fail sign/change-online
+    # user1 must sign the change to root role
+    signer_sign user1 sign/change-online
+    # merge successful signing event, create new snapshot
+    repo_merge sign/change-online
+    # FIXME: This does not publish the latest changes as expected:
+    # Only root was changed, this leads to snapshot deciding no publish
+    # is necessary. See issue #101.
+    repo_snapshot
 
     # Verify test result
     # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy

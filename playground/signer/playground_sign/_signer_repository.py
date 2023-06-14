@@ -330,7 +330,7 @@ class SignerRepository(Repository):
         for keyid in timestamp_role.keyids:
             keys.append(root.get_key(keyid))
 
-        return OnlineConfig(keys, timestamp_expiry, snapshot_expiry)
+        return OnlineConfig(keys, timestamp_expiry, timestamp_signing, snapshot_expiry, snapshot_signing)
 
     def set_online_config(self, online_config: OnlineConfig):
         """Store online delegation configuration in metadata."""
