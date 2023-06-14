@@ -53,11 +53,13 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
         # checkout the base of this signing event in another directory
         with TemporaryDirectory() as temp_dir:
             base_sha = git_expect(["merge-base", f"{config.pull_remote}/main", "HEAD"])
+            event_sha = git_expect(["rev-parse", "HEAD"])
             git_expect(["clone", "--quiet", toplevel, temp_dir])
             git_expect(["-C", temp_dir, "checkout", "--quiet", base_sha])
             base_metadata_dir = os.path.join(temp_dir, "metadata")
             metadata_dir = os.path.join(toplevel, "metadata")
 
+            click.echo(bold_blue(f"Signing event {name} (commit {event_sha[:7]})"))
             repo = SignerRepository(metadata_dir, base_metadata_dir, config.user_name, get_secret_input)
             yield repo
     finally:
