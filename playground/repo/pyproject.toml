@@ -12,7 +12,7 @@ version = "0.0.1"
 description = "CI tools for Repository Plaground"
 readme = "README.md"
 dependencies = [
-  "sigstore @ git+https://github.com/sigstore/sigstore-python",
+  "sigstore @ git+https://github.com/sigstore/sigstore-python@7d4af6c5f6732ef12e5bb455962321ebe5cce137",
   "securesystemslib[azurekms, gcpkms, sigstore, pynacl] @ git+https://github.com/secure-systems-lab/securesystemslib",
   "tuf @ git+https://github.com/theupdateframework/python-tuf",
   "click",
