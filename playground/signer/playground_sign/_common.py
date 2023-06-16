@@ -15,6 +15,7 @@ from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
 
 from playground_sign._signer_repository import SignerRepository
 
+
 class SignerConfig:
     def __init__(self, path: str):
         config = ConfigParser()
@@ -33,7 +34,9 @@ class SignerConfig:
 
 
 @contextmanager
-def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository, None, None]:
+def signing_event(
+    name: str, config: SignerConfig
+) -> Generator[SignerRepository, None, None]:
     toplevel = git(["rev-parse", "--show-toplevel"])
 
     # PyKCS11 (Yubikey support) needs the module path
@@ -60,7 +63,9 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
             metadata_dir = os.path.join(toplevel, "metadata")
 
             click.echo(bold_blue(f"Signing event {name} (commit {event_sha[:7]})"))
-            repo = SignerRepository(metadata_dir, base_metadata_dir, config.user_name, get_secret_input)
+            repo = SignerRepository(
+                metadata_dir, base_metadata_dir, config.user_name, get_secret_input
+            )
             yield repo
     finally:
         # go back to original branch
@@ -73,7 +78,7 @@ def get_signing_key_input() -> Key:
     click.echo(" 2. Yubikey")
     choice = click.prompt(
         bold("Please choose the type of signing key you would like to use"),
-        type=click.IntRange(1,2),
+        type=click.IntRange(1, 2),
         default=1,
     )
 
@@ -84,7 +89,7 @@ def get_signing_key_input() -> Key:
         click.echo(" 3. Microsoft")
         issuer_id = click.prompt(
             bold("Please choose the identity issuer"),
-            type=click.IntRange(1,3),
+            type=click.IntRange(1, 3),
             default=1,
         )
         if issuer_id == 1:
@@ -98,7 +103,11 @@ def get_signing_key_input() -> Key:
         except Exception as e:
             raise click.ClickException(f"Failed to create Sigstore key: {e}")
     else:
-        click.prompt(bold("Please insert your Yubikey and press enter"), default=True, show_default=False)
+        click.prompt(
+            bold("Please insert your Yubikey and press enter"),
+            default=True,
+            show_default=False,
+        )
         try:
             _, key = HSMSigner.import_()
         except Exception as e:
@@ -127,6 +136,7 @@ def git(cmd: list[str]) -> str:
     proc = subprocess.run(cmd, capture_output=True, check=True, text=True)
     return proc.stdout.strip()
 
+
 def git_expect(cmd: list[str]) -> str:
     """Run git, expect success"""
     try:
@@ -135,12 +145,15 @@ def git_expect(cmd: list[str]) -> str:
         print(f"git failure:\n{e.stderr}")
         raise
 
+
 def git_echo(cmd: list[str]):
     cmd = ["git"] + cmd
     subprocess.run(cmd, check=True, text=True)
 
+
 def bold(text: str) -> str:
     return click.style(text, bold=True)
+
 
 def bold_blue(text: str) -> str:
     return click.style(text, bold=True, fg="bright_blue")
