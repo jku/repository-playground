@@ -120,7 +120,7 @@ def _get_online_input(
     config: OnlineConfig, user_config: SignerConfig
 ) -> OnlineConfig:
     config = copy.deepcopy(config)
-    click.echo(f"\nConfiguring online roles")
+    click.echo("\nConfiguring online roles")
     while True:
         keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
         click.echo(
@@ -140,23 +140,23 @@ def _get_online_input(
             config.keys = _collect_online_keys(user_config)
         if choice == 2:
             config.timestamp_expiry = click.prompt(
-                bold(f"Please enter timestamp expiry in days"),
+                bold("Please enter timestamp expiry in days"),
                 type=int,
                 default=config.timestamp_expiry,
             )
             config.timestamp_signing = click.prompt(
-                bold(f"Please enter timestamp signing period in days"),
+                bold("Please enter timestamp signing period in days"),
                 type=int,
                 default=config.timestamp_signing,
             )
         if choice == 3:
             config.snapshot_expiry = click.prompt(
-                bold(f"Please enter snapshot expiry in days"),
+                bold("Please enter snapshot expiry in days"),
                 type=int,
                 default=config.snapshot_expiry,
             )
             config.snapshot_signing = click.prompt(
-                bold(f"Please enter snapshot signing period in days"),
+                bold("Please enter snapshot signing period in days"),
                 type=int,
                 default=config.snapshot_signing,
             )
@@ -168,9 +168,9 @@ def _collect_online_keys(user_config: SignerConfig) -> list[SSlibKey]:
 
     while True:
         click.echo(
-            f" 1. Sigstore\n"
-            f" 2. Google Cloud KMS\n"
-            f" 3. Azure Key Vault"
+            " 1. Sigstore\n"
+            " 2. Google Cloud KMS\n"
+            " 3. Azure Key Vault"
         )
         choice = click.prompt(
             bold("Please select online key type"),
@@ -238,7 +238,7 @@ def _init_repository(repo: SignerRepository, user_config: SignerConfig) -> bool:
     return True
 
 def _update_online_roles(repo: SignerRepository, user_config: SignerConfig) -> bool:
-    click.echo(f"Modifying online roles")
+    click.echo("Modifying online roles")
 
     config = repo.get_online_config()
     new_config = _get_online_input(config, user_config)

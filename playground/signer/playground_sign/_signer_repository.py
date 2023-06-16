@@ -154,7 +154,7 @@ class SignerRepository(Repository):
 
     def _known_good_root(self) -> Root:
         """Return the Root object from the known-good repository state"""
-        prev_path = os.path.join(self._prev_dir, f"root.json")
+        prev_path = os.path.join(self._prev_dir, "root.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
                 md = Metadata.from_bytes(f.read())

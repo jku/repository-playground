@@ -82,9 +82,9 @@ def get_signing_key_input() -> Key:
     if choice == 1:
         identity = click.prompt(bold("Please enter your email address"))
         click.echo(
-            f" 1. GitHub\n"
-            f" 2. Google\n"
-            f" 3. Microsoft"
+            " 1. GitHub\n"
+            " 2. Google\n"
+            " 3. Microsoft"
         )
         issuer_id = click.prompt(
             bold("Please choose the identity issuer"),
