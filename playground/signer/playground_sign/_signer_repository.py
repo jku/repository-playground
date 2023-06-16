@@ -584,7 +584,8 @@ class SignerRepository(Repository):
             )
             if signed.version != 1:
                 output.append(
-                    f"   (expiry period was {old_expiry} days, signing period was {old_signing} days"
+                    f"   (expiry period was {old_expiry} days, "
+                    f"signing period was {old_signing} days"
                 )
 
         return output
@@ -596,7 +597,7 @@ class SignerRepository(Repository):
 
         def _get_signer_name(key: Key) -> str:
             if name in ["timestamp", "snapshot"]:
-                # there's no "signer" in the online case: just use signing system as signer
+                # there's no "signer" in the online case: use signing system as signer
                 uri = key.unrecognized_fields["x-playground-online-uri"]
                 return uri.split(":")[0]
             return key.unrecognized_fields["x-playground-keyowner"]
@@ -615,8 +616,8 @@ class SignerRepository(Repository):
             if root.version > 1:
                 old_delegations = dict(old_root.roles)
 
-            # Use timestamp output for both snapshot and timestamp: NOTE: we should validate that
-            # the delegations really are identical
+            # Use timestamp output for both snapshot and timestamp: NOTE: we should
+            # validate that the delegations really are identical
             delegations.pop("snapshot")
             old_delegations.pop("snapshot", None)
         else:
@@ -656,7 +657,8 @@ class SignerRepository(Repository):
                         f"   * Signers: {role.threshold}/{len(signers)} of {signers}"
                     )
                     output.append(
-                        f"     (was: {old_role.threshold}/{len(old_signers)} of {old_signers}"
+                        f"     (was: {old_role.threshold}/{len(old_signers)} "
+                        f"of {old_signers}"
                     )
                 del old_delegations[name]
 

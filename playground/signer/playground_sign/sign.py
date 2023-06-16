@@ -68,7 +68,8 @@ def sign(verbose: int, push: bool, event_name: str):
             git_expect(["add", "metadata"])
             git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
             if push:
-                msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
+                branch = f"{user_config.push_remote}/{event_name}"
+                msg = f"Press enter to push signature(s) to {branch}"
                 click.prompt(bold(msg), default=True, show_default=False)
                 git_echo(
                     [

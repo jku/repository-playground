@@ -47,10 +47,12 @@ def _get_offline_input(
     click.echo(f"\nConfiguring role {role}")
     while True:
         click.echo(
-            f" 1. Configure signers: [{', '.join(config.signers)}], requiring {config.threshold} signatures"
+            f" 1. Configure signers: [{', '.join(config.signers)}], "
+            f"requiring {config.threshold} signatures"
         )
         click.echo(
-            f" 2. Configure expiry: Role expires in {config.expiry_period} days, re-signing starts {config.signing_period} days before expiry"
+            f" 2. Configure expiry: Role expires in {config.expiry_period} days, "
+            f"re-signing starts {config.signing_period} days before expiry"
         )
         choice = click.prompt(
             bold("Please choose an option or press enter to continue"),
@@ -76,7 +78,7 @@ def _get_offline_input(
             if len(config.signers) == 1:
                 config.threshold = 1
             else:
-                # TODO use value_proc argument to validate threshold is [1-len(new_signers)]
+                # TODO  validate threshold is within [1, len(new_signers)] ?
                 config.threshold = click.prompt(
                     bold(f"Please enter {role} threshold"),
                     type=int,
@@ -131,10 +133,12 @@ def _get_online_input(config: OnlineConfig, user_config: SignerConfig) -> Online
         keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
         click.echo(f" 1. Configure online key: {keyuri}")
         click.echo(
-            f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days, re-signing starts {config.timestamp_signing} days before expiry"
+            f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days,"
+            f" re-signing starts {config.timestamp_signing} days before expiry"
         )
         click.echo(
-            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days, re-signing starts {config.snapshot_signing} days before expiry"
+            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days, "
+            f"re-signing starts {config.snapshot_signing} days before expiry"
         )
         choice = click.prompt(
             bold("Please choose an option or press enter to continue"),
@@ -205,16 +209,15 @@ def _collect_online_keys(user_config: SignerConfig) -> list[SSlibKey]:
             except Exception as e:
                 raise click.ClickException(f"Failed to read Azure Keyvault key: {e}")
         if choice == 4:
-            # This could be generic support for env var keys... but for now is just for the one testing key
-            # the private key is 1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480
+            # This could be generic support, but for now it's a hidden test key.
+            # key value 1d9a024348e413892aeeb8cc8449309c152f48177200ee61a02ae56f450c6480
             uri = "envvar:LOCAL_TESTING_KEY"
+            pub_key = "fa472895c9756c2b9bcd1440bf867d0fa5c4edee79e9792fa9822be3dd6fcbb3"
             key = SSlibKey(
                 "fa47289",
                 "ed25519",
                 "ed25519",
-                {
-                    "public": "fa472895c9756c2b9bcd1440bf867d0fa5c4edee79e9792fa9822be3dd6fcbb3"
-                },
+                {"public": pub_key},
                 {"x-playground-online-uri": uri},
             )
             return [key]
@@ -335,7 +338,8 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
                 git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
 
             if push:
-                msg = f"Press enter to push changes to {user_config.push_remote}/{event_name}"
+                branch = f"{user_config.push_remote}/{event_name}"
+                msg = f"Press enter to push changes to {branch}"
                 click.prompt(bold(msg), default=True, show_default=False)
                 git_echo(
                     [
