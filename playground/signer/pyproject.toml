@@ -22,3 +22,9 @@ requires-python = ">=3.10"
 [project.scripts]
 playground-delegate = "playground_sign:delegate"
 playground-sign = "playground_sign:sign"
+
+[[tool.mypy.overrides]]
+module = [
+  "securesystemslib.*",
+]
+ignore_missing_imports = "True"

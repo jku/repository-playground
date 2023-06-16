@@ -2,12 +2,12 @@
 
 """Internal repository module for playground signer tool"""
 
+from contextlib import AbstractContextManager
 import click
 import filecmp
 import json
 import logging
 import os
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, unique
@@ -17,7 +17,7 @@ from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import Signature, Signer, SigstoreKey, SigstoreSigner, KEY_FOR_TYPE_AND_SCHEME, SIGNER_FOR_URI_SCHEME
 
 from tuf.api.exceptions import UnsignedMetadataError
-from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Root, TargetFile, Targets
+from tuf.api.metadata import DelegatedRole, Delegations, Key, Metadata, Role, Root, Signed, Targets
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
 from tuf.repository import Repository, AbortEdit
 
@@ -434,7 +434,7 @@ class SignerRepository(Repository):
                     self._invites[signer].append(rolename)
 
         if rolename in ["root", "targets"]:
-            delegator_cm = self.edit_root()
+            delegator_cm: AbstractContextManager[Root|Targets] = self.edit_root()
         else:
             delegator_cm = self.edit_targets()
 
@@ -448,6 +448,7 @@ class SignerRepository(Repository):
                 role = DelegatedRole(rolename, [], 1, True, [f"{rolename}/*"])
                 if not delegator.delegations:
                     delegator.delegations = Delegations({}, {})
+                assert delegator.delegations.roles
                 delegator.delegations.roles[rolename] = role
                 changed = True
 
@@ -507,8 +508,8 @@ class SignerRepository(Repository):
         output = []
 
         if rolename == "root":
-            signed = self.root()
-            old_signed = self._known_good_root()
+            signed: Signed = self.root()
+            old_signed: Signed = self._known_good_root()
         else:
             signed = self.targets(rolename)
             old_signed = self._known_good_targets(rolename)
@@ -540,30 +541,31 @@ class SignerRepository(Repository):
             return key.unrecognized_fields["x-playground-keyowner"]
 
         output = []
-        delegations = {}
-        old_delegations = {}
+        delegations: dict[str, Role] = {}
+        old_delegations: dict[str, Role] = {}
 
         # Find delegations for both signing event and known-good state
         if rolename == "root":
-            signed = self.root()
-            delegations = signed.roles
-            old_signed = self._known_good_root()
+            root = self.root()
+            delegations = dict(root.roles)
+
+            old_root = self._known_good_root()
             # avoid using the default delegations for initial old_delegations
-            if signed.version > 1:
-                old_delegations = old_signed.roles
+            if root.version > 1:
+                old_delegations = dict(old_root.roles)
 
             # Use timestamp output for both snapshot and timestamp: NOTE: we should validate that
             # the delegations really are identical
             delegations.pop("snapshot")
             old_delegations.pop("snapshot", None)
         else:
-            signed = self.targets(rolename)
-            if signed.delegations and signed.delegations.roles:
-                delegations = signed.delegations.roles
+            targets = self.targets(rolename)
+            if targets.delegations and targets.delegations.roles:
+                delegations = dict(targets.delegations.roles)
 
-            old_signed = self._known_good_targets(rolename)
-            if old_signed.delegations and old_signed.delegations.roles:
-                old_delegations = old_signed.delegations.roles
+            old_targets = self._known_good_targets(rolename)
+            if old_targets.delegations and old_targets.delegations.roles:
+                old_delegations = dict(old_targets.delegations.roles)
 
         # Produce description of changes (New/Modified/Removed)
         for name, role in delegations.items():
