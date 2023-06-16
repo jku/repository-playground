@@ -68,11 +68,9 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
 
 
 def get_signing_key_input() -> Key:
-    click.echo(
-        "\nConfiguring signing key\n"
-        " 1. Sigstore (OpenID Connect)\n"
-        " 2. Yubikey"
-    )
+    click.echo("\nConfiguring signing key")
+    click.echo(" 1. Sigstore (OpenID Connect)")
+    click.echo(" 2. Yubikey")
     choice = click.prompt(
         bold("Please choose the type of signing key you would like to use"),
         type=click.IntRange(1,2),
@@ -81,11 +79,9 @@ def get_signing_key_input() -> Key:
 
     if choice == 1:
         identity = click.prompt(bold("Please enter your email address"))
-        click.echo(
-            " 1. GitHub\n"
-            " 2. Google\n"
-            " 3. Microsoft"
-        )
+        click.echo(" 1. GitHub")
+        click.echo(" 2. Google")
+        click.echo(" 3. Microsoft")
         issuer_id = click.prompt(
             bold("Please choose the identity issuer"),
             type=click.IntRange(1,3),

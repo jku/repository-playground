@@ -45,10 +45,8 @@ def _get_offline_input(
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring role {role}")
     while True:
-        click.echo(
-            f" 1. Configure signers: [{', '.join(config.signers)}], requiring {config.threshold} signatures\n"
-            f" 2. Configure expiry: Role expires in {config.expiry_period} days, re-signing starts {config.signing_period} days before expiry"
-        )
+        click.echo(f" 1. Configure signers: [{', '.join(config.signers)}], requiring {config.threshold} signatures")
+        click.echo(f" 2. Configure expiry: Role expires in {config.expiry_period} days, re-signing starts {config.signing_period} days before expiry")
         choice = click.prompt(
             bold("Please choose an option or press enter to continue"),
             type=click.IntRange(0, 2),
@@ -123,11 +121,9 @@ def _get_online_input(
     click.echo("\nConfiguring online roles")
     while True:
         keyuri = config.keys[0].unrecognized_fields["x-playground-online-uri"]
-        click.echo(
-            f" 1. Configure online key: {keyuri}\n"
-            f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days, re-signing starts {config.timestamp_signing} days before expiry\n"
-            f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days, re-signing starts {config.snapshot_signing} days before expiry"
-        )
+        click.echo(f" 1. Configure online key: {keyuri}")
+        click.echo(f" 2. Configure timestamp: Expires in {config.timestamp_expiry} days, re-signing starts {config.timestamp_signing} days before expiry")
+        click.echo(f" 3. Configure snapshot: Expires in {config.snapshot_expiry} days, re-signing starts {config.snapshot_signing} days before expiry")
         choice = click.prompt(
             bold("Please choose an option or press enter to continue"),
             type=click.IntRange(0, 3),
@@ -167,11 +163,9 @@ def _collect_online_keys(user_config: SignerConfig) -> list[SSlibKey]:
     # TODO use value_proc argument to validate the input
 
     while True:
-        click.echo(
-            " 1. Sigstore\n"
-            " 2. Google Cloud KMS\n"
-            " 3. Azure Key Vault"
-        )
+        click.echo(" 1. Sigstore")
+        click.echo(" 2. Google Cloud KMS")
+        click.echo(" 3. Azure Key Vault")
         choice = click.prompt(
             bold("Please select online key type"),
             type=click.IntRange(1, 4),
