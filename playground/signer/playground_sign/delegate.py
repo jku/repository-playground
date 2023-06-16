@@ -137,7 +137,7 @@ def _get_online_input(
         if choice == 0:
             break
         if choice == 1:
-            config.keys = _collect_online_keys()
+            config.keys = _collect_online_keys(user_config)
         if choice == 2:
             config.timestamp_expiry = click.prompt(
                 bold(f"Please enter timestamp expiry in days"),
@@ -163,7 +163,7 @@ def _get_online_input(
 
     return config
 
-def _collect_online_keys() -> list[SSlibKey]:
+def _collect_online_keys(user_config: SignerConfig) -> list[SSlibKey]:
     # TODO use value_proc argument to validate the input
 
     while True:
