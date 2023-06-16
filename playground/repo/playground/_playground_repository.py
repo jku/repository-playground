@@ -312,6 +312,7 @@ class PlaygroundRepository(Repository):
 
     def _known_good_targets(self, rolename: str) -> Targets:
         """Return Targets from the known good version (signing event start point)"""
+        assert self._prev_dir
         prev_path = os.path.join(self._prev_dir, f"{rolename}.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
