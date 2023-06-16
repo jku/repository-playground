@@ -53,11 +53,13 @@ def signing_event(name: str, config: SignerConfig) -> Generator[SignerRepository
         # checkout the base of this signing event in another directory
         with TemporaryDirectory() as temp_dir:
             base_sha = git_expect(["merge-base", f"{config.pull_remote}/main", "HEAD"])
+            event_sha = git_expect(["rev-parse", "HEAD"])
             git_expect(["clone", "--quiet", toplevel, temp_dir])
             git_expect(["-C", temp_dir, "checkout", "--quiet", base_sha])
             base_metadata_dir = os.path.join(temp_dir, "metadata")
             metadata_dir = os.path.join(toplevel, "metadata")
 
+            click.echo(bold_blue(f"Signing event {name} (commit {event_sha[:7]})"))
             repo = SignerRepository(metadata_dir, base_metadata_dir, config.user_name, get_secret_input)
             yield repo
     finally:
@@ -110,7 +112,12 @@ def get_signing_key_input() -> Key:
 
 
 def get_secret_input(secret: str, role: str) -> str:
-    msg = f"Enter {secret} to sign {role}"
+    # TODO: Fix this so it prints role as well
+    # This currently has an issue when it's called from
+    # SignerRepository._sign(): The role name is always whatever the first calls argument was...
+    # It seems like the role variable becomes part of the closure in _sign() somehow and then
+    # the role value gets reused in later calls.
+    msg = f"Enter {secret} to sign"
 
     # special case for tests -- prompt() will lockup trying to hide STDIN:
     if not sys.stdin.isatty():
@@ -138,3 +145,6 @@ def git_echo(cmd: list[str]):
 
 def bold(text: str) -> str:
     return click.style(text, bold=True)
+
+def bold_blue(text: str) -> str:
+    return click.style(text, bold=True, fg="bright_blue")

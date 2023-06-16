@@ -298,11 +298,13 @@ def delegate(verbose: int, push: bool, event_name: str, role: str | None):
             if role:
                 msg = f"'{role}' role/delegation change"
             else:
-                msg = "Initial offline metadata"
+                msg = "Initial root and targets"
             git_expect(["add", "metadata/"])
             git_expect(["commit", "-m", msg, "--", "metadata"])
 
             if repo.unsigned:
+                click.echo(f"Your signature is required for role(s) {repo.unsigned}.")
+
                 for rolename in repo.unsigned:
                     click.echo(repo.status(rolename))
                     repo.sign(rolename)
