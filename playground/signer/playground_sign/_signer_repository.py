@@ -302,9 +302,9 @@ class SignerRepository(Repository):
         for key in keys:
             md.signatures[key.keyid] = Signature(key.keyid, "")
 
-            # Mark role as unsigned if user is a signer
+            # Mark role as unsigned if user is a signer (and there are no open invites)
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name:
+            if keyowner == self.user_name and not open_invites:
                 if role not in self.unsigned:
                     self.unsigned.append(role)
 
