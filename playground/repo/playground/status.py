@@ -90,9 +90,10 @@ def _role_status(repo: PlaygroundRepository, role: str, event_name) -> bool:
     signed = status.signed
     missing = status.missing
 
+    # Handle the additional status for the possible previous, known good root version:
     if prev_status:
         role_is_valid = role_is_valid and prev_status.valid
-        sig_counts = f"{sig_counts} ({len(prev_status.signed)}/{prev_status.threshold})"
+        sig_counts = f"{len(prev_status.signed)}/{prev_status.threshold} ({sig_counts})"
         signed = signed | prev_status.signed
         missing = missing | prev_status.missing
 
