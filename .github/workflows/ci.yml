@@ -1,4 +1,4 @@
-name: repository-playground end-to-end tests
+name: Lint & test
 
 on:
   push:
@@ -17,30 +17,22 @@ jobs:
         python-version: "3.11"
         cache: 'pip'
 
-    - name: Install system dependencies
+    - name: Install system dependencies for e2e test
       run: |
         sudo apt-get install libfaketime softhsm2
         echo "PYKCS11LIB=/usr/lib/softhsm/libsofthsm2.so" >> $GITHUB_ENV
 
-    - name: Install Python dependencies
-      run: |
-        # TODO install repo and signer in separate environments
-        python -m pip install pynacl
-        python -m pip install pynacl ./playground/repo/
-        python -m pip install pynacl ./playground/signer/
+    - name: Install tox
+      run: python -m pip install tox
 
-    - name: Run tests
-      run: |
-        cd playground/tests
-        ./e2e.sh
+    - name: Signer lint
+      working-directory: playground
+      run: tox -e lint-signer
 
-    - name: Run Playground unit tests
-      run: |
-        cd playground/repo
-        python -m unittest
+    - name: Repository unit tests
+      working-directory: playground
+      run: tox -e test-repo
 
-    - name: Run tests with DEBUG_TESTS
-      if: failure()
-      run: |
-        cd playground/tests
-        DEBUG_TESTS=1 ./e2e.sh
+    - name: End-to-end tests
+      working-directory: playground
+      run: tox -e test-e2e

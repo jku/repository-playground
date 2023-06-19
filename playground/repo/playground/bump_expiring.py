@@ -44,16 +44,16 @@ def bump_online(verbose: int, push: bool, publish_dir: str | None) -> None:
     msg = f"Periodic online role version bump and resign\n\n"
     repo = PlaygroundRepository("metadata")
     snapshot_version = repo.bump_expiring("snapshot")
-    if snapshot_version is not None:
+    if snapshot_version is None:
+        timestamp_version = repo.bump_expiring("timestamp")
+        if timestamp_version is not None:
+            msg += f"timestamp v{timestamp_version}."
+    else:
         # if snapshot changes, we need to actually update timestamp content
         _, meta = repo.do_timestamp()
         assert meta
         timestamp_version = repo.timestamp().version
         msg += f"snapshot v{snapshot_version}, timestamp v{timestamp_version}."
-    else:
-        timestamp_version = repo.bump_expiring("timestamp")
-        if timestamp_version is not None:
-            msg += f"timestamp v{timestamp_version}."
 
     if not timestamp_version and not snapshot_version:
         click.echo("No online version bumps needed")

@@ -24,3 +24,10 @@ playground-status = "playground:status"
 playground-snapshot = "playground:snapshot"
 playground-bump-online = "playground:bump_online"
 playground-bump-offline = "playground:bump_offline"
+
+[[tool.mypy.overrides]]
+module = [
+  "securesystemslib.*",
+  "sigstore.*",
+]
+ignore_missing_imports = "True"

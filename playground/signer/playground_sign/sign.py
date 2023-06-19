@@ -18,6 +18,7 @@ from playground_sign._signer_repository import SignerState
 
 logger = logging.getLogger(__name__)
 
+
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=True)
@@ -35,7 +36,9 @@ def sign(verbose: int, push: bool, event_name: str):
             click.echo("No metadata repository found")
             changed = False
         elif repo.state == SignerState.INVITED:
-            click.echo(f"You have been invited to become a signer for role(s) {repo.invites}.")
+            click.echo(
+                f"You have been invited to become a signer for role(s) {repo.invites}."
+            )
             key = get_signing_key_input()
             for rolename in repo.invites.copy():
                 # Modify the delegation
@@ -65,9 +68,17 @@ def sign(verbose: int, push: bool, event_name: str):
             git_expect(["add", "metadata"])
             git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
             if push:
-                msg = f"Press enter to push signature(s) to {user_config.push_remote}/{event_name}"
+                branch = f"{user_config.push_remote}/{event_name}"
+                msg = f"Press enter to push signature(s) to {branch}"
                 click.prompt(bold(msg), default=True, show_default=False)
-                git_echo(["push", "--progress", user_config.push_remote, f"HEAD:refs/heads/{event_name}"])
+                git_echo(
+                    [
+                        "push",
+                        "--progress",
+                        user_config.push_remote,
+                        f"HEAD:refs/heads/{event_name}",
+                    ]
+                )
             else:
                 # TODO: maybe deal with existing branch?
                 click.echo(f"Creating local branch {event_name}")
