@@ -112,12 +112,22 @@ class PlaygroundRepository(Repository):
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
 
-    def _get_keys(self, role: str) -> list[Key]:
-        """Return public keys for delegated role"""
+    def _get_keys(self, role: str, known_good:bool = False) -> list[Key]:
+        """Return public keys for delegated role
+
+        If known_good is True, use the keys defined in known good delegator.
+        Otherwise use keys defined in the signing event delegator.
+        """
         if role in ["root", "timestamp", "snapshot", "targets"]:
-            delegator: Root | Targets = self.root()
+            if known_good:
+                delegator: Root | Targets = self._known_good_root()
+            else:
+                delegator = self.root()
         else:
-            delegator = self.targets()
+            if known_good:
+                delegator = self._known_good_targets("targets")
+            else:
+                delegator = self.targets()
 
         r = delegator.get_delegated_role(role)
         keys = []
@@ -310,6 +320,18 @@ class PlaygroundRepository(Repository):
 
         return targetfiles
 
+    def _known_good_root(self) -> Root:
+        """Return the Root object from the known-good repository state"""
+        prev_path = os.path.join(self._prev_dir, f"root.json")
+        if os.path.exists(prev_path):
+            with open(prev_path, "rb") as f:
+                md = Metadata.from_bytes(f.read())
+            assert isinstance(md.signed, Root)
+            return md.signed
+        else:
+            # this role did not exist: return an empty one for comparison purposes
+            return Root()
+
     def _known_good_targets(self, rolename: str) -> Targets:
         """Return Targets from the known good version (signing event start point)"""
         assert self._prev_dir
@@ -350,15 +372,33 @@ class PlaygroundRepository(Repository):
 
         return changes
 
-    def _get_signing_status(self, delegator: Metadata, rolename: str) -> SigningStatus:
+    def _get_signing_status(self, rolename: str, known_good: bool) -> SigningStatus | None:
         """Build signing status for role.
 
         This method relies on event state (.signing-event-state) to be accurate.
+        Returns None in two cases: if role is not root (because then the known good
+        state is irrelevant) and also if there is no known good version yet.
         """
         invites = set()
         sigs = set()
         missing_sigs = set()
         md = self.open(rolename)
+
+        # Find delegating metadata. For root handle the special case of known good
+        # delegating metadata.
+        if known_good:
+            delegator = None
+            if rolename == "root":
+                delegator = self.open_prev("root")
+            if not delegator:
+                # Not root role or there is no known-good root metadata yet
+                return None
+        elif rolename == "root":
+            delegator = self.open("root")
+        elif rolename == "targets":
+            delegator = self.open("root")
+        else:
+            delegator = self.open("targets")
 
         # Build list of invites to all delegated roles of rolename
         delegation_names = []
@@ -373,7 +413,7 @@ class PlaygroundRepository(Repository):
         role = delegator.signed.get_delegated_role(rolename)
 
         # Build lists of signed signers and not signed signers
-        for key in self._get_keys(rolename):
+        for key in self._get_keys(rolename, known_good):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
             try:
                 payload = CanonicalJSONSerializer().serialize(md.signed)
@@ -398,26 +438,15 @@ class PlaygroundRepository(Repository):
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
 
-        In case of root, another SigningStatus is returned for the previous root.
+        In case of root, another SigningStatus may be returned for the previous 
+        'known good' root.
         Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
             raise ValueError(f"Not supported for online metadata")
 
-        prev_md = self.open_prev(rolename)
-        prev_status = None
-
-        # Find out the signing status of the role
-        if rolename == "root":
-            # new root must be signed so it satisfies both old and new root
-            if prev_md:
-                prev_status = self._get_signing_status(prev_md, rolename)
-            delegator = self.open("root")
-        elif rolename == "targets":
-            delegator = self.open("root")
-        else:
-            delegator = self.open("targets")
-
-        return self._get_signing_status(delegator, rolename), prev_status
+        known_good_status = self._get_signing_status(rolename, known_good=True)
+        signing_event_status = self._get_signing_status(rolename, known_good=False)
+        return signing_event_status, known_good_status
 
     def publish(self, directory: str):
         metadata_dir = os.path.join(directory, "metadata")
