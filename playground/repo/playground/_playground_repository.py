@@ -268,8 +268,10 @@ class PlaygroundRepository(Repository):
 
         # Current checks are more examples than actual checks: this should be much more strict
 
-        if prev_md and md.signed.version <= prev_md.signed.version:
-            return False, f"Version {md.signed.version} is not valid for {rolename}"
+        # Make sure version grows if there are actual payload changes
+        if prev_md and prev_md.signed != md.signed:
+            if md.signed.version <= prev_md.signed.version:
+                return False, f"Version {md.signed.version} is not valid for {rolename}"
 
         days = md.signed.unrecognized_fields["x-playground-expiry-period"]
         if md.signed.expires > datetime.utcnow() + timedelta(days=days):
