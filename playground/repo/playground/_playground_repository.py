@@ -440,7 +440,7 @@ class PlaygroundRepository(Repository):
     def status(self, rolename: str) -> tuple[SigningStatus, SigningStatus | None]:
         """Returns signing status for role.
 
-        In case of root, another SigningStatus may be returned for the previous 
+        In case of root, another SigningStatus may be returned for the previous
         'known good' root.
         Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
@@ -450,9 +450,25 @@ class PlaygroundRepository(Repository):
         signing_event_status = self._get_signing_status(rolename, known_good=False)
         return signing_event_status, known_good_status
 
-    def publish(self, directory: str):
-        metadata_dir = os.path.join(directory, "metadata")
-        targets_dir = os.path.join(directory, "targets")
+    def publish(self, directory: str, metadata_path: str, targets_path: str):
+        def clean_path(p: str):
+            if p.startswith('/'):
+                return p[1:]
+            return p
+
+        metadata_path = clean_path(metadata_path)
+        targets_path = clean_path(targets_path)
+
+        if metadata_path == '':
+            metadata_dir = directory
+        else:
+            metadata_dir = os.path.join(directory, metadata_path)
+
+        if targets_path == '':
+            targets_dir = directory
+        else:
+            targets_dir = os.path.join(directory, targets_path)
+
         os.makedirs(metadata_dir, exist_ok=True)
 
         for src_path in glob(os.path.join(self._dir, "root_history", "*.root.json")):
