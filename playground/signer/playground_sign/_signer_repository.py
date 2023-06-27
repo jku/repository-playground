@@ -323,7 +323,9 @@ class SignerRepository(Repository):
             # signing event
             keys = self._get_keys(role)
 
-        # wipe signatures
+        # wipe signatures, update "unsigned" list
+        if role in self.unsigned:
+            self.unsigned.remove(role)
         md.signatures.clear()
         for key in keys:
             md.signatures[key.keyid] = Signature(key.keyid, "")
