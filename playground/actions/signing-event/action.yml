@@ -45,7 +45,7 @@ runs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: "Signing event: " + process.env.GITHUB_REF_NAME,
-              body: "TODO: document signing event here",
+              body: "Processing signing event " + process.env.GITHUB_REF_NAME + ", please wait.",
               labels: [process.env.GITHUB_REF_NAME],
             })
             issue = response.data.number
