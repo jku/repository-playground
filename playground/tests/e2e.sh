@@ -196,7 +196,6 @@ signer_init_multiuser()
         ""                  # Configure online roles? [enter to continue]
         "2"                 # Choose signing key [2: yubikey]
         ""                  # Insert HW key and press enter
-        "0000"              # sign root
         "0000"              # sign targets
         ""                  # press enter to push
     )
