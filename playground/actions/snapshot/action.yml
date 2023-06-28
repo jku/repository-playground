@@ -51,7 +51,7 @@ runs:
         mkdir publish
         cd repository
         if playground-snapshot --push --metadata ${{ inputs.metadata_path}} --targets ${{ inputs.targets_path}} ../publish; then
-          find -type f "../publish" | xargs ls -lh
+          find "../publish" -type f | xargs ls -lh
           echo "generated=true" >> $GITHUB_OUTPUT
         else
           echo "generated=false" >> $GITHUB_OUTPUT
