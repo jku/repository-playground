@@ -29,8 +29,10 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.command()
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
+@click.option("--metadata", required=True)
+@click.option("--targets", required=True)
 @click.argument("publish-dir", required=False)
-def bump_online(verbose: int, push: bool, publish_dir: str | None) -> None:
+def bump_online(verbose: int, push: bool, metadata: str, targets: str, publish_dir: str | None) -> None:
     """Commit new metadata versions for online roles if needed
 
     New versions will be signed.
@@ -67,7 +69,7 @@ def bump_online(verbose: int, push: bool, publish_dir: str | None) -> None:
         _git(["push", "origin", "HEAD"])
 
     if publish_dir:
-        repo.publish(publish_dir)
+        repo.publish(publish_dir, metadata, targets)
         click.echo(f"New repository snapshot generated and published in {publish_dir}")
     else:
         click.echo(f"New repository snapshot generated")

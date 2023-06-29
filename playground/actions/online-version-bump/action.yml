@@ -10,6 +10,12 @@ inputs:
     description: 'Google Cloud service account name'
     required: false
     default: ''
+  metadata_path:
+    description: 'Path where to store the metadata files in the published repository'
+    required: true
+  targets_path:
+    description: 'Path where to store the target files in the published repository'
+    required: true
 
 outputs:
   generated:
@@ -43,8 +49,8 @@ runs:
       run: |
         mkdir publish
         cd repository
-        if playground-bump-online --push ../publish; then
-          ls -l "../publish"
+        if playground-bump-online --push --metadata ${{ inputs.metadata_path}} --targets ${{ inputs.targets_path}} ../publish; then
+          find "../publish" -type f | xargs ls -lh
           echo "generated=true" >> $GITHUB_OUTPUT
         else
           echo "generated=false" >> $GITHUB_OUTPUT

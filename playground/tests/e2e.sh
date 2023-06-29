@@ -368,7 +368,7 @@ repo_snapshot()
     cd $REPO_GIT
 
 
-    if LOCAL_TESTING_KEY=$ONLINE_KEY playground-snapshot --push $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
+    if LOCAL_TESTING_KEY=$ONLINE_KEY playground-snapshot --push --metadata metadata --targets targets $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
         echo "generated=true" >> $REPO_DIR/out
     else
         echo "generated=false" >> $REPO_DIR/out
@@ -382,7 +382,7 @@ repo_bump_versions()
 
     cd $REPO_GIT
 
-    if LOCAL_TESTING_KEY=$ONLINE_KEY playground-bump-online --push $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
+    if LOCAL_TESTING_KEY=$ONLINE_KEY playground-bump-online --push --metadata metadata --targets targets $PUBLISH_DIR >> $REPO_DIR/out 2>&1; then
         echo "generated=true" >> $REPO_DIR/out
     else
         echo "generated=false" >> $REPO_DIR/out
