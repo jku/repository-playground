@@ -14,7 +14,7 @@ This is a Work-In-Progress: any code should be seen as experimental for now. See
 
 ## Documentation
 
-* [Design document](https://docs.google.com/document/d/140jiFHGc3wwEmNaJmUdgkNeNK4i4CC-lm5-eVQYXiL0)
+* [Design document](https://docs.google.com/document/d/140jiFHGc3wwEmNaJmUdgkNeNK4i4CC-lm5-eVQYXiL0/edit?resourcekey=0-CLZhA-H2jtd3WQD-lBLsqQ)
 * [Implementation notes](IMPLEMENTATION-NOTES.md)
 
 ## Setup
