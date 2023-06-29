@@ -13,11 +13,9 @@ inputs:
   metadata_path:
     description: 'Path where to store the metadata files in the published repository'
     required: true
-    default: '/'
   targets_path:
     description: 'Path where to store the target files in the published repository'
     required: true
-    default: 'targets
 
 outputs:
   generated:
