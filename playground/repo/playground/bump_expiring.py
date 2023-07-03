@@ -32,7 +32,9 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.option("--metadata", required=True)
 @click.option("--targets", required=True)
 @click.argument("publish-dir", required=False)
-def bump_online(verbose: int, push: bool, metadata: str, targets: str, publish_dir: str | None) -> None:
+def bump_online(
+    verbose: int, push: bool, metadata: str, targets: str, publish_dir: str | None
+) -> None:
     """Commit new metadata versions for online roles if needed
 
     New versions will be signed.
@@ -43,7 +45,7 @@ def bump_online(verbose: int, push: bool, metadata: str, targets: str, publish_d
     """
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
-    msg = f"Periodic online role version bump and resign\n\n"
+    msg = "Periodic online role version bump and resign\n\n"
     repo = PlaygroundRepository("metadata")
     snapshot_version = repo.bump_expiring("snapshot")
     if snapshot_version is None:
@@ -72,7 +74,7 @@ def bump_online(verbose: int, push: bool, metadata: str, targets: str, publish_d
         repo.publish(publish_dir, metadata, targets)
         click.echo(f"New repository snapshot generated and published in {publish_dir}")
     else:
-        click.echo(f"New repository snapshot generated")
+        click.echo("New repository snapshot generated")
 
 
 @click.command()

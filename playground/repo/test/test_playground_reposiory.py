@@ -1,4 +1,4 @@
-import unittest, shutil, tempfile
+import unittest
 from playground._playground_repository import PlaygroundRepository
 
 class TestPlaygroundRepository(unittest.TestCase):

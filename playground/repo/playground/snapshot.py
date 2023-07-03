@@ -4,7 +4,6 @@
 
 import subprocess
 import sys
-from tempfile import mkdtemp
 import click
 import logging
 
@@ -32,7 +31,9 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
 @click.option("--metadata", required=True)
 @click.option("--targets", required=True)
 @click.argument("publish-dir", required=False)
-def snapshot(verbose: int, push: bool, metadata: str, targets: str, publish_dir: str | None) -> None:
+def snapshot(
+    verbose: int, push: bool, metadata: str, targets: str, publish_dir: str | None
+) -> None:
     """Update The TUF snapshot based on current repository content
 
     Create a commit with the snapshot and timestamp changes (if any).
@@ -61,4 +62,4 @@ def snapshot(verbose: int, push: bool, metadata: str, targets: str, publish_dir:
         repo.publish(publish_dir, metadata, targets)
         click.echo(f"New repository snapshot generated and published in {publish_dir}")
     else:
-        click.echo(f"New repository snapshot generated")
+        click.echo("New repository snapshot generated")

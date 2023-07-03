@@ -16,6 +16,7 @@ from securesystemslib.signer import (
 )
 from sigstore.oidc import detect_credential
 
+from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import (
     Key,
     Metadata,
@@ -266,7 +267,7 @@ class PlaygroundRepository(Repository):
         md = self.open(rolename)
         prev_md = self.open_prev(rolename)
 
-        # Current checks are more examples than actual checks: this should be much more strict
+        # TODO: Current checks are more examples than actual checks
 
         # Make sure version grows if there are actual payload changes
         if prev_md and prev_md.signed != md.signed:
@@ -291,7 +292,7 @@ class PlaygroundRepository(Repository):
 
         try:
             delegator.verify_delegate(rolename, md)
-        except:
+        except UnsignedMetadataError:
             return False, None
 
         return True, None
@@ -324,7 +325,7 @@ class PlaygroundRepository(Repository):
 
     def _known_good_root(self) -> Root:
         """Return the Root object from the known-good repository state"""
-        prev_path = os.path.join(self._prev_dir, f"root.json")
+        prev_path = os.path.join(self._prev_dir, "root.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
                 md = Metadata.from_bytes(f.read())
@@ -374,7 +375,9 @@ class PlaygroundRepository(Repository):
 
         return changes
 
-    def _get_signing_status(self, rolename: str, known_good: bool) -> SigningStatus | None:
+    def _get_signing_status(
+        self, rolename: str, known_good: bool
+    ) -> SigningStatus | None:
         """Build signing status for role.
 
         This method relies on event state (.signing-event-state) to be accurate.
@@ -444,7 +447,7 @@ class PlaygroundRepository(Repository):
         'known good' root.
         Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
-            raise ValueError(f"Not supported for online metadata")
+            raise ValueError("Not supported for online metadata")
 
         known_good_status = self._get_signing_status(rolename, known_good=True)
         signing_event_status = self._get_signing_status(rolename, known_good=False)
