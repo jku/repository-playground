@@ -143,6 +143,7 @@ def git_expect(cmd: list[str]) -> str:
         return git(cmd)
     except subprocess.CalledProcessError as e:
         print(f"git failure:\n{e.stderr}")
+        print(f"\n{e.stdout}")
         raise
 
 
