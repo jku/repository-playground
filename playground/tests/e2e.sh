@@ -142,6 +142,34 @@ signer_init()
     done | playground-delegate $EVENT >> $SIGNER_DIR/out 2>&1
 }
 
+signer_change_root_signer()
+{
+    # run playground-delegate to change root signer from user1 to user2:
+    USER1=$1
+    USER2=$2
+    EVENT=$3
+
+    SIGNER_DIR="$WORK_DIR/$TEST_NAME/$USER1"
+    SIGNER_GIT="$SIGNER_DIR/git"
+    export SOFTHSM2_CONF="$SIGNER_DIR/softhsm2.conf"
+
+    # user1 needs to eventually sign, but after this, there's on open invitation
+    # for user2, so signing does not happen here
+    INPUT=(
+        "root"              # select role to modify
+        "1"                 # Configure root? [1: configure signers]
+        "@playground$USER2"  # Enter list of signers
+        ""                 # Configure root? [enter to continue]
+        ""                  # press enter to push
+    )
+
+    cd $SIGNER_GIT
+
+    for line in "${INPUT[@]}"; do
+        echo $line
+    done | playground-delegate $EVENT >> $SIGNER_DIR/out 2>&1
+}
+
 signer_init_shorter_snapshot_expiry()
 {
     # run playground-delegate: creates a commit, pushes it to remote branch
@@ -553,6 +581,47 @@ test_target_changes()
     echo "OK"
 }
 
+test_root_key_rotation()
+{
+    echo -n "Root key rotation... "
+    setup_test "root_key_rotation"
+
+    # Run the processes under test
+    # user1: Start signing event, sign root and targets
+    signer_init user1 sign/initial
+    # merge successful signing event, create snapshot
+    repo_merge sign/initial
+    repo_snapshot
+
+    # New signing event: change root signer
+    signer_change_root_signer user1 user2 sign/new-root
+    # signing event is not finished: An invite is open
+    repo_status_fail sign/new-root
+
+    # new signer user2 accepts invite: adds key to metadata and signs
+    signer_accept_invite user2 sign/new-root
+    # signing event is not finished: the old signer root signer must sign
+    repo_status_fail sign/new-root
+
+    # old signer user1 signs
+    signer_sign user1 sign/new-root
+    # signing event is now finished
+    repo_merge sign/new-root
+    # FIXME: This does not publish the latest changes as expected:
+    # Only root was changed, this leads to snapshot deciding no publish
+    # is necessary. See issue #101.
+    repo_snapshot
+
+    # Verify test result
+    # ECDSA signatures are not deterministic: wipe all sigs so diffing is easy
+    for t in ${PUBLISH_DIR}/metadata/*.json; do
+        strip_signatures $t
+    done
+    # the resulting metadata should match expected metadata exactly
+    diff -r $SCRIPT_DIR/expected/root-key-rotation/ $PUBLISH_DIR
+
+    echo "OK"
+}
 
 OS=$(uname -s)
 
@@ -586,3 +655,4 @@ test_basic
 test_online_bumps
 test_multi_user_signing
 test_target_changes
+test_root_key_rotation
