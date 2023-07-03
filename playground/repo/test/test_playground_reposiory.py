@@ -1,6 +1,7 @@
 import unittest
 from playground._playground_repository import PlaygroundRepository
 
+
 class TestPlaygroundRepository(unittest.TestCase):
     def test_non_existing_repo(self):
         repo = PlaygroundRepository("/tmp/no_such_file")
@@ -39,5 +40,6 @@ class TestPlaygroundRepository(unittest.TestCase):
     #     ver = repo.bump_expiring("timestamp")
     #     self.assertEqual(ver, 2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

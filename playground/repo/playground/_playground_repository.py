@@ -113,7 +113,7 @@ class PlaygroundRepository(Repository):
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
 
-    def _get_keys(self, role: str, known_good:bool = False) -> list[Key]:
+    def _get_keys(self, role: str, known_good: bool = False) -> list[Key]:
         """Return public keys for delegated role
 
         If known_good is True, use the keys defined in known good delegator.
@@ -455,19 +455,19 @@ class PlaygroundRepository(Repository):
 
     def publish(self, directory: str, metadata_path: str, targets_path: str):
         def clean_path(p: str):
-            if p.startswith('/'):
+            if p.startswith("/"):
                 return p[1:]
             return p
 
         metadata_path = clean_path(metadata_path)
         targets_path = clean_path(targets_path)
 
-        if metadata_path == '':
+        if metadata_path == "":
             metadata_dir = directory
         else:
             metadata_dir = os.path.join(directory, metadata_path)
 
-        if targets_path == '':
+        if targets_path == "":
             targets_dir = directory
         else:
             targets_dir = os.path.join(directory, targets_path)
