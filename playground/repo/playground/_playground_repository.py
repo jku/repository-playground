@@ -325,6 +325,7 @@ class PlaygroundRepository(Repository):
 
     def _known_good_root(self) -> Root:
         """Return the Root object from the known-good repository state"""
+        assert self._prev_dir is not None
         prev_path = os.path.join(self._prev_dir, "root.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
@@ -381,8 +382,9 @@ class PlaygroundRepository(Repository):
         """Build signing status for role.
 
         This method relies on event state (.signing-event-state) to be accurate.
-        Returns None in two cases: if role is not root (because then the known good
-        state is irrelevant) and also if there is no known good version yet.
+        Returns None only when known_good is True, and then in two cases: if delegating
+        role is not root (because then the known good state is irrelevant) and also if
+        there is no known good version yet.
         """
         invites = set()
         sigs = set()
@@ -451,6 +453,8 @@ class PlaygroundRepository(Repository):
 
         known_good_status = self._get_signing_status(rolename, known_good=True)
         signing_event_status = self._get_signing_status(rolename, known_good=False)
+        assert signing_event_status is not None
+
         return signing_event_status, known_good_status
 
     def publish(self, directory: str, metadata_path: str, targets_path: str):
