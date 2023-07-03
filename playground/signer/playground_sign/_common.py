@@ -136,6 +136,7 @@ def git(cmd: list[str]) -> str:
     proc = subprocess.run(cmd, capture_output=True, check=True, text=True)
     return proc.stdout.strip()
 
+
 def git_expect(cmd: list[str]) -> str:
     """Run git, expect success"""
     try:
