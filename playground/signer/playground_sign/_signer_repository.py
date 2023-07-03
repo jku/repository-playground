@@ -156,6 +156,19 @@ class SignerRepository(Repository):
                     key.verify_signature(md.signatures[key.keyid], payload)
                 except (KeyError, UnverifiedSignatureError):
                     return True
+
+        # Root signers for previous root version are eligible to sign
+        # the current version
+        if rolename == "root":
+            for key in self._get_keys(rolename, True):
+                keyowner = key.unrecognized_fields["x-playground-keyowner"]
+                if keyowner == self.user_name:
+                    try:
+                        payload = CanonicalJSONSerializer().serialize(md.signed)
+                        key.verify_signature(md.signatures[key.keyid], payload)
+                    except (KeyError, UnverifiedSignatureError):
+                        return True
+
         return False
 
     def _get_filename(self, role: str) -> str:
@@ -711,5 +724,15 @@ class SignerRepository(Repository):
                 self._sign(rolename, md, key)
                 self._write(rolename, md)
                 return
+
+        # Root is eligible to sign current root if the signer was valid
+        # in previous version
+        if rolename == "root":
+            for key in self._get_keys(rolename, True):
+                keyowner = key.unrecognized_fields["x-playground-keyowner"]
+                if keyowner == self.user_name:
+                    self._sign(rolename, md, key)
+                    self._write(rolename, md)
+                    return
 
         assert f"{rolename} signing key for {self.user_name} not found"
