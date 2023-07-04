@@ -3,7 +3,6 @@
 """Command line tool to update snapshot (and timestamp) for Repository Playground CI"""
 
 import subprocess
-import sys
 import click
 import logging
 
@@ -39,8 +38,6 @@ def snapshot(
     Create a commit with the snapshot and timestamp changes (if any).
     If --push, the commit is pushed to origin.
     If publish-dir is provided, a repository snapshot is generated into that directory
-
-    returns 1 if no snapshot was generated
     """
     logging.basicConfig(level=logging.WARNING - verbose * 10)
 
@@ -48,18 +45,15 @@ def snapshot(
     snapshot_updated, _ = repo.do_snapshot()
     if not snapshot_updated:
         click.echo("No snapshot needed")
-        sys.exit(1)
+    else:
+        repo.do_timestamp()
 
-    repo.do_timestamp()
-
-    msg = "Snapshot & timestamp"
-    _git(["add", "metadata/timestamp.json", "metadata/snapshot.json"])
-    _git(["commit", "-m", msg])
-    if push:
-        _git(["push", "origin", "HEAD"])
+        msg = "Snapshot & timestamp"
+        _git(["add", "metadata/timestamp.json", "metadata/snapshot.json"])
+        _git(["commit", "-m", msg])
+        if push:
+            _git(["push", "origin", "HEAD"])
 
     if publish_dir:
         repo.publish(publish_dir, metadata, targets)
-        click.echo(f"New repository snapshot generated and published in {publish_dir}")
-    else:
-        click.echo("New repository snapshot generated")
+        click.echo(f"New repository version published in {publish_dir}")
