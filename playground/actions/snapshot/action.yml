@@ -19,8 +19,9 @@ inputs:
 
 outputs:
   generated:
+    # Currently always true: a repository artifact is published every time
     description: "'true' if a new repository version was uploaded"
-    value: ${{ steps.snapshot.outputs.generated }}
+    value: true
 
 runs:
   using: "composite"
@@ -48,16 +49,12 @@ runs:
       run: |
         mkdir publish
         cd repository
-        if playground-snapshot --push --metadata ${{ inputs.metadata_path}} --targets ${{ inputs.targets_path}} ../publish; then
-          find "../publish" -type f | xargs ls -lh
-          echo "generated=true" >> $GITHUB_OUTPUT
-        else
-          echo "generated=false" >> $GITHUB_OUTPUT
-        fi
+        playground-snapshot --push --metadata ${{ inputs.metadata_path}} --targets ${{ inputs.targets_path}} ../publish
+
+        find "../publish" -type f | xargs ls -lh
       shell: bash
 
     - name: Upload repository artifact for GitHub Pages
-      if: steps.snapshot.outputs.generated == 'true'
       uses: actions/upload-pages-artifact@253fd476ed429e83b7aae64a92a75b4ceb1a17cf
       with:
         path: publish/
