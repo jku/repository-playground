@@ -8,11 +8,10 @@ import os
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
-from urllib import parse
 import click
 import logging
 
-from playground._playground_repository import PlaygroundRepository, SigningEventState
+from playground._playground_repository import PlaygroundRepository
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ def _find_changed_target_roles(
         except FileNotFoundError:
             pass
 
-        # we've found a changed target, add the rolename to list. Handle "targets" as special case
+        # found a changed target, add rolename to list. "targets" is a special case
         rolename, _, _ = filepath.rpartition(filepath)
         if not rolename:
             rolename = "targets"
@@ -108,7 +107,8 @@ def _role_status(repo: PlaygroundRepository, role: str, event_name) -> bool:
             f"{role} delegations have open invites ({', '.join(status.invites)})."
         )
         click.echo(
-            f"Invitees can accept the invitations by running `playground-sign {event_name}`"
+            "Invitees can accept the invitations by running "
+            f"`playground-sign {event_name}`"
         )
 
     if not status.invites:
@@ -120,11 +120,13 @@ def _role_status(repo: PlaygroundRepository, role: str, event_name) -> bool:
 
         if role_is_valid:
             click.echo(
-                f"{role} is verified and signed by {sig_counts} signers ({', '.join(signed)})."
+                f"{role} is verified and signed by {sig_counts} signers "
+                f"({', '.join(signed)})."
             )
         elif signed:
             click.echo(
-                f"{role} is not yet verified. It is signed by {sig_counts} signers ({', '.join(signed)})."
+                f"{role} is not yet verified. It is signed by {sig_counts} signers "
+                f"({', '.join(signed)})."
             )
         else:
             click.echo(f"{role} is unsigned and not yet verified")
@@ -132,7 +134,8 @@ def _role_status(repo: PlaygroundRepository, role: str, event_name) -> bool:
         if missing:
             click.echo(f"Still missing signatures from {', '.join(missing)}")
             click.echo(
-                f"Signers can sign these changes by running `playground-sign {event_name}`"
+                "Signers can sign these changes by running "
+                f"`playground-sign {event_name}`"
             )
 
     if status.message:
@@ -155,7 +158,8 @@ def status(verbose: int, push: bool) -> None:
 
     if not os.path.exists("metadata/root.json"):
         click.echo(
-            f"Repository does not exist yet. Create one with `playground-delegate {event_name}`."
+            "Repository does not exist yet. Create one with "
+            f"`playground-delegate {event_name}`."
         )
         sys.exit(1)
 
@@ -178,7 +182,7 @@ def status(verbose: int, push: bool) -> None:
         # Print status for each role, count invalid roles
         repo = PlaygroundRepository("metadata", good_metadata)
 
-        # first create a list of roles that have metadata changes, artifact changes or delegation invites
+        # first create a list of roles with metadata or artifact changes or invites
         roles = list(
             _find_changed_roles(good_metadata, "metadata")
             | _find_changed_target_roles(good_targets, "targets")
@@ -190,10 +194,10 @@ def status(verbose: int, push: bool) -> None:
                 roles.remove(toplevel)
                 roles.insert(0, toplevel)
 
-        # If artifact metadata needs an update, do that. Then output the roles current status
+        # Update metadata if necessary. Output the roles current status
         for role in roles:
             if repo.update_targets(role):
-                # metadata and target content are not in sync: make a commit with metadata changes
+                # metadata and artifacts are not in sync
                 msg = f"Update targets metadata for role {role}"
                 _git(["commit", "-m", msg, "--", f"metadata/{role}.json"])
 

@@ -16,6 +16,7 @@ from securesystemslib.signer import (
 )
 from sigstore.oidc import detect_credential
 
+from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import (
     Key,
     Metadata,
@@ -112,7 +113,7 @@ class PlaygroundRepository(Repository):
     def _get_filename(self, role: str) -> str:
         return f"{self._dir}/{role}.json"
 
-    def _get_keys(self, role: str, known_good:bool = False) -> list[Key]:
+    def _get_keys(self, role: str, known_good: bool = False) -> list[Key]:
         """Return public keys for delegated role
 
         If known_good is True, use the keys defined in known good delegator.
@@ -266,7 +267,7 @@ class PlaygroundRepository(Repository):
         md = self.open(rolename)
         prev_md = self.open_prev(rolename)
 
-        # Current checks are more examples than actual checks: this should be much more strict
+        # TODO: Current checks are more examples than actual checks
 
         # Make sure version grows if there are actual payload changes
         if prev_md and prev_md.signed != md.signed:
@@ -291,7 +292,7 @@ class PlaygroundRepository(Repository):
 
         try:
             delegator.verify_delegate(rolename, md)
-        except:
+        except UnsignedMetadataError:
             return False, None
 
         return True, None
@@ -324,7 +325,8 @@ class PlaygroundRepository(Repository):
 
     def _known_good_root(self) -> Root:
         """Return the Root object from the known-good repository state"""
-        prev_path = os.path.join(self._prev_dir, f"root.json")
+        assert self._prev_dir is not None
+        prev_path = os.path.join(self._prev_dir, "root.json")
         if os.path.exists(prev_path):
             with open(prev_path, "rb") as f:
                 md = Metadata.from_bytes(f.read())
@@ -374,12 +376,15 @@ class PlaygroundRepository(Repository):
 
         return changes
 
-    def _get_signing_status(self, rolename: str, known_good: bool) -> SigningStatus | None:
+    def _get_signing_status(
+        self, rolename: str, known_good: bool
+    ) -> SigningStatus | None:
         """Build signing status for role.
 
         This method relies on event state (.signing-event-state) to be accurate.
-        Returns None in two cases: if role is not root (because then the known good
-        state is irrelevant) and also if there is no known good version yet.
+        Returns None only when known_good is True, and then in two cases: if delegating
+        role is not root (because then the known good state is irrelevant) and also if
+        there is no known good version yet.
         """
         invites = set()
         sigs = set()
@@ -444,27 +449,29 @@ class PlaygroundRepository(Repository):
         'known good' root.
         Uses .signing-event-state file."""
         if rolename in ["timestamp", "snapshot"]:
-            raise ValueError(f"Not supported for online metadata")
+            raise ValueError("Not supported for online metadata")
 
         known_good_status = self._get_signing_status(rolename, known_good=True)
         signing_event_status = self._get_signing_status(rolename, known_good=False)
+        assert signing_event_status is not None
+
         return signing_event_status, known_good_status
 
     def publish(self, directory: str, metadata_path: str, targets_path: str):
         def clean_path(p: str):
-            if p.startswith('/'):
+            if p.startswith("/"):
                 return p[1:]
             return p
 
         metadata_path = clean_path(metadata_path)
         targets_path = clean_path(targets_path)
 
-        if metadata_path == '':
+        if metadata_path == "":
             metadata_dir = directory
         else:
             metadata_dir = os.path.join(directory, metadata_path)
 
-        if targets_path == '':
+        if targets_path == "":
             targets_dir = directory
         else:
             targets_dir = os.path.join(directory, targets_path)
