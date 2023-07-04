@@ -517,9 +517,6 @@ test_multi_user_signing()
     signer_sign user1 sign/change-online
     # merge successful signing event, create new snapshot
     repo_merge sign/change-online
-    # FIXME: This does not publish the latest changes as expected:
-    # Only root was changed, this leads to snapshot deciding no publish
-    # is necessary. See issue #101.
     repo_snapshot
 
     # Verify test result
@@ -607,9 +604,6 @@ test_root_key_rotation()
     signer_sign user1 sign/new-root
     # signing event is now finished
     repo_merge sign/new-root
-    # FIXME: This does not publish the latest changes as expected:
-    # Only root was changed, this leads to snapshot deciding no publish
-    # is necessary. See issue #101.
     repo_snapshot
 
     # Verify test result
