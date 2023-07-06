@@ -78,7 +78,7 @@ class User:
     def __init__(self, path: str):
         self._config_path = path
 
-        self._config = ConfigParser()
+        self._config = ConfigParser(interpolation=None)
         self._config.read(path)
 
         # TODO: create config if missing, ask/confirm values from user
