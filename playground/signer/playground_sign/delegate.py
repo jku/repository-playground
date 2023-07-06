@@ -47,12 +47,12 @@ def _get_offline_input(
     click.echo(f"\nConfiguring role {role}")
 
     def delistify(s: str) -> str:
-        s = s.replace('(', '')
-        s = s.replace(')', '')
-        s = s.replace('[', '')
-        s = s.replace(']', '')
-        s = s.replace('{', '')
-        s = s.replace('}', '')
+        s = s.replace("(", "")
+        s = s.replace(")", "")
+        s = s.replace("[", "")
+        s = s.replace("]", "")
+        s = s.replace("{", "")
+        s = s.replace("}", "")
         return s
 
     while True:
@@ -99,7 +99,11 @@ def _get_offline_input(
                 if thr < 1:
                     click.echo(bold("Threshold must be greater than 0"))
                 elif thr > len(config.signers):
-                    click.echo(bold(f"Threshold {thr} is greater than the number of signers {len(config.signers)}"))
+                    click.echo(
+                        bold(
+                            f"Threshold {thr} is greater than the number of signers {len(config.signers)}"  # noqa: E501
+                        )
+                    )
                 else:
                     config.threshold = thr
 
