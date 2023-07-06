@@ -11,10 +11,10 @@ from playground_sign._common import (
     get_signing_key_input,
     git_expect,
     git_echo,
-    User,
     signing_event,
 )
 from playground_sign._signer_repository import SignerState
+from playground_sign._user import User
 
 logger = logging.getLogger(__name__)
 

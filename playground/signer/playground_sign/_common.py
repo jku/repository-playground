@@ -11,7 +11,8 @@ import click
 
 from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
 
-from playground_sign._signer_repository import SignerRepository, User
+from playground_sign._signer_repository import SignerRepository
+from playground_sign._user import User
 
 
 @contextmanager

@@ -21,7 +21,6 @@ from playground_sign._common import (
     get_signing_key_input,
     git_expect,
     git_echo,
-    User,
     signing_event,
 )
 from playground_sign._signer_repository import (
@@ -30,6 +29,7 @@ from playground_sign._signer_repository import (
     SignerRepository,
     SignerState,
 )
+from playground_sign._user import User
 
 
 # sigstore is not a supported key by default
