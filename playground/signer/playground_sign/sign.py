@@ -11,7 +11,7 @@ from playground_sign._common import (
     get_signing_key_input,
     git_expect,
     git_echo,
-    SignerConfig,
+    User,
     signing_event,
 )
 from playground_sign._signer_repository import SignerState
@@ -29,9 +29,9 @@ def sign(verbose: int, push: bool, event_name: str):
 
     toplevel = git_expect(["rev-parse", "--show-toplevel"])
     settings_path = os.path.join(toplevel, ".playground-sign.ini")
-    user_config = SignerConfig(settings_path)
+    user = User(settings_path)
 
-    with signing_event(event_name, user_config) as repo:
+    with signing_event(event_name, user) as repo:
         if repo.state == SignerState.UNINITIALIZED:
             click.echo("No metadata repository found")
             changed = False
@@ -66,16 +66,16 @@ def sign(verbose: int, push: bool, event_name: str):
 
         if changed:
             git_expect(["add", "metadata"])
-            git_expect(["commit", "-m", f"Signed by {user_config.user_name}"])
+            git_expect(["commit", "-m", f"Signed by {user.name}"])
             if push:
-                branch = f"{user_config.push_remote}/{event_name}"
+                branch = f"{user.push_remote}/{event_name}"
                 msg = f"Press enter to push signature(s) to {branch}"
                 click.prompt(bold(msg), default=True, show_default=False)
                 git_echo(
                     [
                         "push",
                         "--progress",
-                        user_config.push_remote,
+                        user.push_remote,
                         f"HEAD:refs/heads/{event_name}",
                     ]
                 )

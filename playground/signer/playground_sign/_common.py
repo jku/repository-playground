@@ -2,7 +2,6 @@
 
 """Common helper functions"""
 
-from configparser import ConfigParser
 from contextlib import contextmanager
 import os
 import subprocess
@@ -13,49 +12,30 @@ import click
 
 from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
 
-from playground_sign._signer_repository import SignerRepository
-
-
-class SignerConfig:
-    def __init__(self, path: str):
-        config = ConfigParser()
-        config.read(path)
-
-        # TODO: create config if missing, ask/confirm values from user
-        if not config:
-            raise click.ClickException(f"Settings file {path} not found")
-        try:
-            self.user_name = config["settings"]["user-name"]
-            self.pykcs11lib = config["settings"]["pykcs11lib"]
-            self.push_remote = config["settings"]["push-remote"]
-            self.pull_remote = config["settings"]["pull-remote"]
-        except KeyError as e:
-            raise click.ClickException(f"Failed to find required setting {e} in {path}")
+from playground_sign._signer_repository import SignerRepository, User
 
 
 @contextmanager
-def signing_event(
-    name: str, config: SignerConfig
-) -> Generator[SignerRepository, None, None]:
+def signing_event(name: str, user: User) -> Generator[SignerRepository, None, None]:
     toplevel = git(["rev-parse", "--show-toplevel"])
 
     # PyKCS11 (Yubikey support) needs the module path
     # TODO: if config is not set, complain/ask the user?
     if "PYKCS11LIB" not in os.environ:
-        os.environ["PYKCS11LIB"] = config.pykcs11lib
+        os.environ["PYKCS11LIB"] = user.pykcs11lib
 
     # first, make sure we're up-to-date
-    git_expect(["fetch", config.pull_remote])
+    git_expect(["fetch", user.pull_remote])
     try:
-        git(["checkout", f"{config.pull_remote}/{name}"])
+        git(["checkout", f"{user.pull_remote}/{name}"])
     except subprocess.CalledProcessError:
         click.echo("Remote branch not found: branching off from main")
-        git_expect(["checkout", f"{config.pull_remote}/main"])
+        git_expect(["checkout", f"{user.pull_remote}/main"])
 
     try:
         # checkout the base of this signing event in another directory
         with TemporaryDirectory() as temp_dir:
-            base_sha = git_expect(["merge-base", f"{config.pull_remote}/main", "HEAD"])
+            base_sha = git_expect(["merge-base", f"{user.pull_remote}/main", "HEAD"])
             event_sha = git_expect(["rev-parse", "HEAD"])
             git_expect(["clone", "--quiet", toplevel, temp_dir])
             git_expect(["-C", temp_dir, "checkout", "--quiet", base_sha])
@@ -63,10 +43,9 @@ def signing_event(
             metadata_dir = os.path.join(toplevel, "metadata")
 
             click.echo(bold_blue(f"Signing event {name} (commit {event_sha[:7]})"))
-            repo = SignerRepository(
-                metadata_dir, base_metadata_dir, config.user_name, get_secret_input
+            yield SignerRepository(
+                metadata_dir, base_metadata_dir, user, get_secret_input
             )
-            yield repo
     finally:
         # go back to original branch
         git_expect(["checkout", "-"])

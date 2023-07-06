@@ -2,6 +2,7 @@
 
 """Internal repository module for playground signer tool"""
 
+from configparser import ConfigParser
 from contextlib import AbstractContextManager
 import click
 import filecmp
@@ -71,6 +72,23 @@ class OfflineConfig:
     signing_period: int
 
 
+class User:
+    def __init__(self, path: str):
+        config = ConfigParser()
+        config.read(path)
+
+        # TODO: create config if missing, ask/confirm values from user
+        if not config:
+            raise click.ClickException(f"Settings file {path} not found")
+        try:
+            self.name = config["settings"]["user-name"]
+            self.pykcs11lib = config["settings"]["pykcs11lib"]
+            self.push_remote = config["settings"]["push-remote"]
+            self.pull_remote = config["settings"]["pull-remote"]
+        except KeyError as e:
+            raise click.ClickException(f"Failed to find required setting {e} in {path}")
+
+
 def blue(text: str) -> str:
     return click.style(text, fg="bright_blue")
 
@@ -104,10 +122,10 @@ class SignerRepository(Repository):
         self,
         dir: str,
         prev_dir: str,
-        user_name: str,
+        user: User,
         secret_func: Callable[[str, str], str],
     ):
-        self.user_name = user_name
+        self.user = user
         self._dir = dir
         self._prev_dir = prev_dir
         self._get_secret = secret_func
@@ -141,7 +159,7 @@ class SignerRepository(Repository):
     def invites(self) -> list[str]:
         """Return the list of roles the user has been invited to"""
         try:
-            return self._invites[self.user_name]
+            return self._invites[self.user.name]
         except KeyError:
             return []
 
@@ -150,7 +168,7 @@ class SignerRepository(Repository):
         md = self.open(rolename)
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name:
+            if keyowner == self.user.name:
                 try:
                     payload = CanonicalJSONSerializer().serialize(md.signed)
                     key.verify_signature(md.signatures[key.keyid], payload)
@@ -162,7 +180,7 @@ class SignerRepository(Repository):
         if rolename == "root":
             for key in self._get_keys(rolename, True):
                 keyowner = key.unrecognized_fields["x-playground-keyowner"]
-                if keyowner == self.user_name:
+                if keyowner == self.user.name:
                     try:
                         payload = CanonicalJSONSerializer().serialize(md.signed)
                         key.verify_signature(md.signatures[key.keyid], payload)
@@ -259,7 +277,7 @@ class SignerRepository(Repository):
                 md.sign(signer, True)
                 break
             except UnsignedMetadataError:
-                print(f"Failed to sign {role} with {self.user_name} key. Try again?")
+                print(f"Failed to sign {role} with {self.user.name} key. Try again?")
 
     def _write(self, role: str, md: Metadata) -> None:
         filename = self._get_filename(role)
@@ -345,7 +363,7 @@ class SignerRepository(Repository):
 
             # Mark role as unsigned if user is a signer (and there are no open invites)
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name and not open_invites:
+            if keyowner == self.user.name and not open_invites:
                 if role not in self.unsigned:
                     self.unsigned.append(role)
 
@@ -527,18 +545,18 @@ class SignerRepository(Repository):
 
             # Add user themselves
             invited = (
-                self.user_name in self._invites
-                and rolename in self._invites[self.user_name]
+                self.user.name in self._invites
+                and rolename in self._invites[self.user.name]
             )
             if invited and signing_key:
                 signing_key.unrecognized_fields[
                     "x-playground-keyowner"
-                ] = self.user_name
+                ] = self.user.name
                 delegator.add_key(signing_key, rolename)
 
-                self._invites[self.user_name].remove(rolename)
-                if not self._invites[self.user_name]:
-                    del self._invites[self.user_name]
+                self._invites[self.user.name].remove(rolename)
+                if not self._invites[self.user.name]:
+                    del self._invites[self.user.name]
 
                 # Add role to unsigned list even if the role itself does not change
                 if rolename not in self.unsigned:
@@ -720,7 +738,7 @@ class SignerRepository(Repository):
         md = self.open(rolename)
         for key in self._get_keys(rolename):
             keyowner = key.unrecognized_fields["x-playground-keyowner"]
-            if keyowner == self.user_name:
+            if keyowner == self.user.name:
                 self._sign(rolename, md, key)
                 self._write(rolename, md)
                 return
@@ -730,9 +748,9 @@ class SignerRepository(Repository):
         if rolename == "root":
             for key in self._get_keys(rolename, True):
                 keyowner = key.unrecognized_fields["x-playground-keyowner"]
-                if keyowner == self.user_name:
+                if keyowner == self.user.name:
                     self._sign(rolename, md, key)
                     self._write(rolename, md)
                     return
 
-        assert f"{rolename} signing key for {self.user_name} not found"
+        assert f"{rolename} signing key for {self.user.name} not found"
