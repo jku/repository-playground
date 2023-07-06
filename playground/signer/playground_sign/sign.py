@@ -39,7 +39,9 @@ def sign(verbose: int, push: bool, event_name: str):
             click.echo(
                 f"You have been invited to become a signer for role(s) {repo.invites}."
             )
-            key = get_signing_key_input()
+            uri, key = get_signing_key_input()
+            repo.user.store_signer(uri, key)
+
             for rolename in repo.invites.copy():
                 # Modify the delegation
                 role_config = repo.get_role_config(rolename)

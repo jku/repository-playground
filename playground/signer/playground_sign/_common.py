@@ -48,7 +48,7 @@ def signing_event(name: str, user: User) -> Generator[SignerRepository, None, No
         git_expect(["checkout", "-"])
 
 
-def get_signing_key_input() -> Key:
+def get_signing_key_input() -> tuple[str, Key]:
     click.echo("\nConfiguring signing key")
     click.echo(" 1. Sigstore (OpenID Connect)")
     click.echo(" 2. Yubikey")
@@ -75,7 +75,7 @@ def get_signing_key_input() -> Key:
         else:
             issuer = "https://login.microsoftonline.com"
         try:
-            _, key = SigstoreSigner.import_(identity, issuer, ambient=False)
+            uri, key = SigstoreSigner.import_(identity, issuer, ambient=False)
         except Exception as e:
             raise click.ClickException(f"Failed to create Sigstore key: {e}")
     else:
@@ -85,11 +85,11 @@ def get_signing_key_input() -> Key:
             show_default=False,
         )
         try:
-            _, key = HSMSigner.import_()
+            uri, key = HSMSigner.import_()
         except Exception as e:
             raise click.ClickException(f"Failed to read HW key: {e}")
 
-    return key
+    return uri, key
 
 
 def git(cmd: list[str]) -> str:

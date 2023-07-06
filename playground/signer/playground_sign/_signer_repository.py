@@ -74,6 +74,7 @@ class OfflineConfig:
 
 class User:
     """Class that manages user configuration and stores the signer cache for the user"""
+
     def __init__(self, path: str):
         self._config_path = path
 
@@ -136,6 +137,17 @@ class User:
             self._signers[key.keyid] = Signer.from_priv_key_uri("hsm:", key, get_secret)
 
         return self._signers[key.keyid]
+
+    def store_signer(self, uri: str, key: Key) -> None:
+        """Store the uri in the signing-keys section of the config file"""
+        self._signing_key_uris[key.keyid] = uri
+
+        if "signing-keys" not in self._config:
+            self._config.add_section("signing-keys")
+        self._config["signing-keys"][key.keyid] = uri
+
+        with open(self._config_path, "w") as f:
+            self._config.write(f)
 
 
 def blue(text: str) -> str:

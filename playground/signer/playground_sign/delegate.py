@@ -252,11 +252,13 @@ def _init_repository(repo: SignerRepository) -> bool:
         repo.user.name in root_config.signers
         or repo.user.name in targets_config.signers
     ):
-        key = get_signing_key_input()
+        uri, key = get_signing_key_input()
+        repo.user.store_signer(uri, key)
 
     repo.set_role_config("root", root_config, key)
     repo.set_role_config("targets", targets_config, key)
     repo.set_online_config(online_config)
+
     return True
 
 
@@ -288,7 +290,8 @@ def _update_offline_role(repo: SignerRepository, role: str) -> bool:
 
     key = None
     if repo.user.name in new_config.signers:
-        key = get_signing_key_input()
+        uri, key = get_signing_key_input()
+        repo.user.store_signer(uri, key)
 
     repo.set_role_config(role, new_config, key)
     return True
