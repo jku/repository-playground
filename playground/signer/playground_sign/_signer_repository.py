@@ -140,6 +140,11 @@ class User:
 
     def store_signer(self, uri: str, key: Key) -> None:
         """Store the uri in the signing-keys section of the config file"""
+
+        # NOTE Currently we set the uri and commit to a file immediately:
+        # it might make sense to separate these steps so that we could only commit
+        # after the whole process has finished (e.g. no git issues or something)
+
         self._signing_key_uris[key.keyid] = uri
 
         if "signing-keys" not in self._config:
@@ -309,13 +314,14 @@ class SignerRepository(Repository):
             else:
                 delegator = self.targets()
 
-        r = delegator.get_delegated_role(role)
         keys = []
-        for keyid in r.keyids:
-            try:
+        try:
+            r = delegator.get_delegated_role(role)
+            for keyid in r.keyids:
                 keys.append(delegator.get_key(keyid))
-            except ValueError:
-                pass
+        except ValueError:
+            pass # either no role delegated yet or key not found
+
         return keys
 
     def _sign(self, role: str, md: Metadata, key: Key) -> None:
@@ -547,7 +553,7 @@ class SignerRepository(Repository):
 
         # Handle new invitations
         for signer in config.signers:
-            # Find signers key
+            # Does signer already have key that was defined previously?
             is_signer = False
             for key in self._get_keys(rolename):
                 if signer == key.unrecognized_fields["x-playground-keyowner"]:
