@@ -4,6 +4,7 @@
 
 from configparser import ConfigParser
 from contextlib import AbstractContextManager
+import sys
 import click
 import filecmp
 import json
@@ -13,7 +14,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, unique
 from glob import glob
-from typing import Callable
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import (
     Signature,
@@ -73,24 +73,77 @@ class OfflineConfig:
 
 
 class User:
+    """Class that manages user configuration and stores the signer cache for the user"""
     def __init__(self, path: str):
-        config = ConfigParser()
-        config.read(path)
+        self._config_path = path
+
+        self._config = ConfigParser()
+        self._config.read(path)
 
         # TODO: create config if missing, ask/confirm values from user
-        if not config:
+        if not self._config:
             raise click.ClickException(f"Settings file {path} not found")
         try:
-            self.name = config["settings"]["user-name"]
-            self.pykcs11lib = config["settings"]["pykcs11lib"]
-            self.push_remote = config["settings"]["push-remote"]
-            self.pull_remote = config["settings"]["pull-remote"]
+            self.name = self._config["settings"]["user-name"]
+            self.pykcs11lib = self._config["settings"]["pykcs11lib"]
+            self.push_remote = self._config["settings"]["push-remote"]
+            self.pull_remote = self._config["settings"]["pull-remote"]
         except KeyError as e:
             raise click.ClickException(f"Failed to find required setting {e} in {path}")
+
+        # signing key config is not required
+        if "signing-keys" in self._config:
+            self._signing_key_uris = dict(self._config.items("signing-keys"))
+        else:
+            self._signing_key_uris = {}
+
+        # signer cache gets populated as they are used the first time
+        self._signers: dict[str, Signer] = {}
+
+    def get_signer(self, key: Key) -> Signer:
+        """Returns a Signer for the given public key
+
+        The signer sources are (in order):
+        * any configured signer from 'signing-keys' config section
+        * for sigstore type keys, a Signer is automatically created
+        * for any remaining keys, HSM is assumed and a signer is created
+        """
+
+        def get_secret(secret: str) -> str:
+            msg = f"Enter {secret} to sign"
+
+            # special case for tests -- prompt() will lockup trying to hide STDIN:
+            if not sys.stdin.isatty():
+                return sys.stdin.readline().rstrip()
+
+            return click.prompt(bold(msg), hide_input=True)
+
+        if key.keyid in self._signers:
+            # signer is already cached
+            pass
+        elif key.keyid in self._signing_key_uris:
+            # signer is not cached yet, but the uri was configured
+            uri = self._signing_key_uris[key.keyid]
+            self._signers[key.keyid] = Signer.from_priv_key_uri(uri, key, get_secret)
+
+        elif key.keytype == "sigstore-oidc":
+            # signer is not cached, no configuration was found, type is sigstore
+            self._signers[key.keyid] = Signer.from_priv_key_uri(
+                "sigstore:?ambient=false", key, get_secret
+            )
+        else:
+            # signer is not cached, no configuration was found: assume Yubikey
+            self._signers[key.keyid] = Signer.from_priv_key_uri("hsm:", key, get_secret)
+
+        return self._signers[key.keyid]
 
 
 def blue(text: str) -> str:
     return click.style(text, fg="bright_blue")
+
+
+def bold(text: str) -> str:
+    return click.style(text, bold=True)
 
 
 def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str]:
@@ -123,12 +176,10 @@ class SignerRepository(Repository):
         dir: str,
         prev_dir: str,
         user: User,
-        secret_func: Callable[[str, str], str],
     ):
         self.user = user
         self._dir = dir
         self._prev_dir = prev_dir
-        self._get_secret = secret_func
         self._invites: dict[str, list[str]] = {}
         self._signers: dict[str, Signer] = {}
 
@@ -256,22 +307,7 @@ class SignerRepository(Repository):
         return keys
 
     def _sign(self, role: str, md: Metadata, key: Key) -> None:
-        def secret_handler(secret: str) -> str:
-            return self._get_secret(secret, role)
-
-        if key.keyid not in self._signers:
-            # TODO Get key uri from .playground-sign.ini, avoid if-else here
-            if key.keytype == "sigstore-oidc":
-                self._signers[key.keyid] = Signer.from_priv_key_uri(
-                    "sigstore:?ambient=false", key, secret_handler
-                )
-            else:
-                self._signers[key.keyid] = Signer.from_priv_key_uri(
-                    "hsm:", key, secret_handler
-                )
-
-        signer = self._signers[key.keyid]
-
+        signer = self.user.get_signer(key)
         while True:
             try:
                 md.sign(signer, True)

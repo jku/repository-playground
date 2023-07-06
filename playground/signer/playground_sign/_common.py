@@ -5,7 +5,6 @@
 from contextlib import contextmanager
 import os
 import subprocess
-import sys
 from tempfile import TemporaryDirectory
 from typing import Generator
 import click
@@ -43,9 +42,7 @@ def signing_event(name: str, user: User) -> Generator[SignerRepository, None, No
             metadata_dir = os.path.join(toplevel, "metadata")
 
             click.echo(bold_blue(f"Signing event {name} (commit {event_sha[:7]})"))
-            yield SignerRepository(
-                metadata_dir, base_metadata_dir, user, get_secret_input
-            )
+            yield SignerRepository(metadata_dir, base_metadata_dir, user)
     finally:
         # go back to original branch
         git_expect(["checkout", "-"])
@@ -93,21 +90,6 @@ def get_signing_key_input() -> Key:
             raise click.ClickException(f"Failed to read HW key: {e}")
 
     return key
-
-
-def get_secret_input(secret: str, role: str) -> str:
-    # TODO: Fix this so it prints role as well
-    # This currently has an issue when it's called from SignerRepository._sign(): The
-    # role name is always whatever the first calls argument was...
-    # It seems like the role variable becomes part of the closure in _sign() somehow
-    # and then the role value gets reused in later calls.
-    msg = f"Enter {secret} to sign"
-
-    # special case for tests -- prompt() will lockup trying to hide STDIN:
-    if not sys.stdin.isatty():
-        return sys.stdin.readline().rstrip()
-
-    return click.prompt(bold(msg), hide_input=True)
 
 
 def git(cmd: list[str]) -> str:
