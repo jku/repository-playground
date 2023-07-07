@@ -144,7 +144,7 @@ def _role_status(repo: PlaygroundRepository, role: str, event_name) -> bool:
     return role_is_valid and not status.invites
 
 
-@click.command()
+@click.command()  # type: ignore[arg-type]
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=True)
 def status(verbose: int, push: bool) -> None:
