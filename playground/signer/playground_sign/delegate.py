@@ -8,6 +8,7 @@ from urllib import parse
 import click
 import logging
 import os
+import re
 from securesystemslib.signer import (
     AzureSigner,
     GCPSigner,
@@ -45,15 +46,24 @@ def _get_offline_input(
 ) -> OfflineConfig:
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring role {role}")
+    username_re = re.compile("^\\@[0-9a-zA-Z\\-]+$")
 
-    def delistify(s: str) -> str:
-        s = s.replace("(", "")
-        s = s.replace(")", "")
-        s = s.replace("[", "")
-        s = s.replace("]", "")
-        s = s.replace("{", "")
-        s = s.replace("}", "")
-        return s
+    def verify_signers(response: str) -> list[str]:
+        # The list is presented in brackets [], if users tries to
+        # respond with a list like expression, clear that.
+        response = response.strip("[]")
+        signers: list[str] = []
+        for s in response.split(","):
+            s = s.strip()
+            if not s.startswith("@"):
+                s = f"@{s}"
+
+            if not re.match(username_re, s):
+                click.echo(bold(f"Invalid username {s}"))
+                signers = []
+            else:
+                signers.append(s)
+        return signers
 
     while True:
         click.echo(
@@ -77,17 +87,17 @@ def _get_offline_input(
                 bold(f"Please enter list of {role} signers"),
                 default=", ".join(config.signers),
             )
-            config.signers.clear()
 
-            # The list is presented in brackets [], if users tries to
-            # respond with a list like expression, clear that.
-            response = delistify(response)
-            for s in response.split(","):
-                s = s.strip()
-                if not s.startswith("@"):
-                    s = f"@{s}"
-                config.signers.append(s)
-
+            # Verify that each username is valid, if a single username is
+            # invalid, restart the prompt where the user chooses the action
+            signers = verify_signers(response)
+            if len(signers) > 0:
+                # only update the signers if all new signers are valid
+                # usernames to avoid putting the user in a partially updated
+                # state
+                config.signers = signers
+            else:
+                continue
             if len(config.signers) == 1:
                 config.threshold = 1
             else:
