@@ -6,12 +6,12 @@ import filecmp
 import json
 import logging
 import os
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, unique
 from glob import glob
-from typing import Callable
 
 import click
 from securesystemslib.exceptions import UnverifiedSignatureError

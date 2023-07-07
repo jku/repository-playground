@@ -5,10 +5,10 @@
 import os
 import subprocess
 import sys
+from collections.abc import Generator
 from configparser import ConfigParser
 from contextlib import contextmanager
 from tempfile import TemporaryDirectory
-from typing import Generator
 
 import click
 from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
