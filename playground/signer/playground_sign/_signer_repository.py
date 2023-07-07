@@ -83,7 +83,7 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> list[str
             f"{signing_event_dir}/{fname}", f"{known_good_dir}/{fname}", shallow=False
         ):
             if fname in ["timestamp.json", "snapshot.json"]:
-                assert "Unexpected change in online files"
+                raise RuntimeError("Unexpected change in online files")
 
             changed_roles.append(fname[: -len(".json")])
 
@@ -734,4 +734,4 @@ class SignerRepository(Repository):
                     self._write(rolename, md)
                     return
 
-        assert f"{rolename} signing key for {self.user_name} not found"
+        raise ValueError(f"{rolename} signing key for {self.user_name} not found")
