@@ -8,6 +8,7 @@ from urllib import parse
 import click
 import logging
 import os
+import re
 from securesystemslib.signer import (
     AzureSigner,
     GCPSigner,
@@ -45,6 +46,27 @@ def _get_offline_input(
 ) -> OfflineConfig:
     config = copy.deepcopy(config)
     click.echo(f"\nConfiguring role {role}")
+    username_re = re.compile("^\\@[0-9a-zA-Z\\-]+$")
+
+    def verify_signers(response: str) -> list[str]:
+        # The list is presented in brackets [], if users tries to
+        # respond with a list like expression, clear that.
+        response = response.strip("[]")
+        if not response:
+            raise click.BadParameter("Must have at least one signer")
+
+        signers: list[str] = []
+        for s in response.split(","):
+            s = s.strip()
+            if not s.startswith("@"):
+                s = f"@{s}"
+
+            if not re.match(username_re, s):
+                raise click.BadParameter(f"Invalid username {s}")
+            signers.append(s)
+
+        return signers
+
     while True:
         click.echo(
             f" 1. Configure signers: [{', '.join(config.signers)}], "
@@ -63,27 +85,21 @@ def _get_offline_input(
         if choice == 0:
             break
         if choice == 1:
-            # TODO use value_proc argument to validate the input
-            response = click.prompt(
+            config.signers = click.prompt(
                 bold(f"Please enter list of {role} signers"),
                 default=", ".join(config.signers),
+                value_proc=verify_signers,
             )
-            config.signers.clear()
-            for s in response.split(","):
-                s = s.strip()
-                if not s.startswith("@"):
-                    s = f"@{s}"
-                config.signers.append(s)
 
             if len(config.signers) == 1:
                 config.threshold = 1
             else:
-                # TODO  validate threshold is within [1, len(new_signers)] ?
                 config.threshold = click.prompt(
                     bold(f"Please enter {role} threshold"),
-                    type=int,
+                    type=click.IntRange(1, len(config.signers)),
                     default=config.threshold,
                 )
+
         elif choice == 2:
             config.expiry_period = click.prompt(
                 bold(f"Please enter {role} expiry period in days"),
