@@ -2,11 +2,12 @@
 
 """Command line tool to version bump roles that are about to expire"""
 
-from glob import glob
+import logging
 import subprocess
 import sys
+from glob import glob
+
 import click
-import logging
 
 from playground._playground_repository import PlaygroundRepository
 

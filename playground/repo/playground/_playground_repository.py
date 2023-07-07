@@ -1,21 +1,21 @@
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from enum import Enum, unique
-from glob import glob
 import json
 import logging
 import os
 import shutil
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum, unique
+from glob import glob
+
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import (
+    KEY_FOR_TYPE_AND_SCHEME,
     Signature,
     Signer,
     SigstoreKey,
     SigstoreSigner,
-    KEY_FOR_TYPE_AND_SCHEME,
 )
 from sigstore.oidc import detect_credential
-
 from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import (
     Key,
@@ -27,8 +27,8 @@ from tuf.api.metadata import (
     Targets,
     Timestamp,
 )
-from tuf.repository import AbortEdit, Repository
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
+from tuf.repository import AbortEdit, Repository
 
 # sigstore is not a supported key by default
 KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey

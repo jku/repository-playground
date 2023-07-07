@@ -3,13 +3,14 @@
 """Command line signing event status output tool for Repository Playground CI"""
 
 import filecmp
-from glob import glob
+import logging
 import os
 import subprocess
 import sys
+from glob import glob
 from tempfile import TemporaryDirectory
+
 import click
-import logging
 
 from playground._playground_repository import PlaygroundRepository
 
@@ -44,7 +45,7 @@ def _find_changed_roles(known_good_dir: str, signing_event_dir: str) -> set[str]
             f"{signing_event_dir}/{fname}", f"{known_good_dir}/{fname}", shallow=False
         ):
             if fname in ["timestamp.json", "snapshot.json"]:
-                assert "Unexpected change in online files"
+                raise RuntimeError("Unexpected change in online files")
 
             changed_roles.add(fname[: -len(".json")])
 

@@ -2,36 +2,36 @@
 
 """playground-modify: A command line tool to modify Repository Playground delegations"""
 
-from copy import deepcopy
 import copy
-from urllib import parse
-import click
 import logging
 import os
 import re
+from copy import deepcopy
+from urllib import parse
+
+import click
 from securesystemslib.signer import (
+    KEY_FOR_TYPE_AND_SCHEME,
     AzureSigner,
     GCPSigner,
-    KEY_FOR_TYPE_AND_SCHEME,
-    SSlibKey,
     SigstoreKey,
+    SSlibKey,
 )
 
 from playground_sign._common import (
+    SignerConfig,
     bold,
     get_signing_key_input,
-    git_expect,
     git_echo,
-    SignerConfig,
+    git_expect,
     signing_event,
 )
 from playground_sign._signer_repository import (
-    OnlineConfig,
     OfflineConfig,
+    OnlineConfig,
     SignerRepository,
     SignerState,
 )
-
 
 # sigstore is not a supported key by default
 KEY_FOR_TYPE_AND_SCHEME[("sigstore-oidc", "Fulcio")] = SigstoreKey

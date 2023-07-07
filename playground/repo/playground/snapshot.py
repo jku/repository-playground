@@ -2,9 +2,10 @@
 
 """Command line tool to update snapshot (and timestamp) for Repository Playground CI"""
 
-import subprocess
-import click
 import logging
+import subprocess
+
+import click
 
 from playground._playground_repository import PlaygroundRepository
 

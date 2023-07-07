@@ -31,3 +31,8 @@ module = [
   "sigstore.*",
 ]
 ignore_missing_imports = "True"
+
+[tool.ruff]
+# pycodestyle errors(E) and Pyflakes (F) are enabled by default.
+# Also enable isort (I) and pep8-naming (N) .
+select = ["E", "F", "I", "N"]

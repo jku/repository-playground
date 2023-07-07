@@ -2,16 +2,17 @@
 
 """playground-sign: A command line tool to sign Repository Playground changes"""
 
-import click
 import logging
 import os
 
+import click
+
 from playground_sign._common import (
+    SignerConfig,
     bold,
     get_signing_key_input,
-    git_expect,
     git_echo,
-    SignerConfig,
+    git_expect,
     signing_event,
 )
 from playground_sign._signer_repository import SignerState
