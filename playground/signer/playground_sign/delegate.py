@@ -91,21 +91,11 @@ def _get_offline_input(
             if len(config.signers) == 1:
                 config.threshold = 1
             else:
-                thr = click.prompt(
+                config.threshold = click.prompt(
                     bold(f"Please enter {role} threshold"),
-                    type=int,
+                    type=click.IntRange(1, len(config.signers)),
                     default=config.threshold,
                 )
-                if thr < 1:
-                    click.echo(bold("Threshold must be greater than 0"))
-                elif thr > len(config.signers):
-                    click.echo(
-                        bold(
-                            f"Threshold {thr} is greater than the number of signers {len(config.signers)}"  # noqa: E501
-                        )
-                    )
-                else:
-                    config.threshold = thr
 
         elif choice == 2:
             config.expiry_period = click.prompt(
