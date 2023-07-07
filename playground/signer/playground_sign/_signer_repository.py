@@ -2,27 +2,27 @@
 
 """Internal repository module for playground signer tool"""
 
-from contextlib import AbstractContextManager
-import click
 import filecmp
 import json
 import logging
 import os
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, unique
 from glob import glob
 from typing import Callable
+
+import click
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import (
+    KEY_FOR_TYPE_AND_SCHEME,
+    SIGNER_FOR_URI_SCHEME,
     Signature,
     Signer,
     SigstoreKey,
     SigstoreSigner,
-    KEY_FOR_TYPE_AND_SCHEME,
-    SIGNER_FOR_URI_SCHEME,
 )
-
 from tuf.api.exceptions import UnsignedMetadataError
 from tuf.api.metadata import (
     DelegatedRole,
@@ -35,8 +35,7 @@ from tuf.api.metadata import (
     Targets,
 )
 from tuf.api.serialization.json import CanonicalJSONSerializer, JSONSerializer
-from tuf.repository import Repository, AbortEdit
-
+from tuf.repository import AbortEdit, Repository
 
 logger = logging.getLogger(__name__)
 

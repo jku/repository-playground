@@ -3,13 +3,14 @@
 """Command line signing event status output tool for Repository Playground CI"""
 
 import filecmp
-from glob import glob
+import logging
 import os
 import subprocess
 import sys
+from glob import glob
 from tempfile import TemporaryDirectory
+
 import click
-import logging
 
 from playground._playground_repository import PlaygroundRepository
 

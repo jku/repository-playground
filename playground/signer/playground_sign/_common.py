@@ -2,15 +2,15 @@
 
 """Common helper functions"""
 
-from configparser import ConfigParser
-from contextlib import contextmanager
 import os
 import subprocess
 import sys
+from configparser import ConfigParser
+from contextlib import contextmanager
 from tempfile import TemporaryDirectory
 from typing import Generator
-import click
 
+import click
 from securesystemslib.signer import HSMSigner, Key, SigstoreSigner
 
 from playground_sign._signer_repository import SignerRepository
