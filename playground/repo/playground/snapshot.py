@@ -24,7 +24,7 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
     return proc
 
 
-@click.command()
+@click.command()  # type: ignore[arg-type]
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
 @click.option("--metadata", required=True)

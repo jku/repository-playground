@@ -26,7 +26,7 @@ def _git(cmd: list[str]) -> subprocess.CompletedProcess:
     return proc
 
 
-@click.command()
+@click.command()  # type: ignore[arg-type]
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
 @click.option("--metadata", required=True)
@@ -77,7 +77,7 @@ def bump_online(
         click.echo("New repository snapshot generated")
 
 
-@click.command()
+@click.command()  # type: ignore[arg-type]
 @click.option("-v", "--verbose", count=True, default=0)
 @click.option("--push/--no-push", default=False)
 def bump_offline(verbose: int, push: bool) -> None:
