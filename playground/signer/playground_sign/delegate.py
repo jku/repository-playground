@@ -52,6 +52,9 @@ def _get_offline_input(
         # The list is presented in brackets [], if users tries to
         # respond with a list like expression, clear that.
         response = response.strip("[]")
+        if not response:
+            raise click.BadParameter("Must have at least one signer")
+
         signers: list[str] = []
         for s in response.split(","):
             s = s.strip()
@@ -59,10 +62,9 @@ def _get_offline_input(
                 s = f"@{s}"
 
             if not re.match(username_re, s):
-                click.echo(bold(f"Invalid username {s}"))
-                signers = []
-            else:
-                signers.append(s)
+                raise click.BadParameter(f"Invalid username {s}")
+            signers.append(s)
+
         return signers
 
     while True:
@@ -83,21 +85,12 @@ def _get_offline_input(
         if choice == 0:
             break
         if choice == 1:
-            response = click.prompt(
+            config.signers = click.prompt(
                 bold(f"Please enter list of {role} signers"),
                 default=", ".join(config.signers),
+                value_proc=verify_signers,
             )
 
-            # Verify that each username is valid, if a single username is
-            # invalid, restart the prompt where the user chooses the action
-            signers = verify_signers(response)
-            if len(signers) > 0:
-                # only update the signers if all new signers are valid
-                # usernames to avoid putting the user in a partially updated
-                # state
-                config.signers = signers
-            else:
-                continue
             if len(config.signers) == 1:
                 config.threshold = 1
             else:
