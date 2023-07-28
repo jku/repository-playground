@@ -1,6 +1,6 @@
 > **⚠️ Note**
 > 
-> repository-playground (the CI-bsaed implementation) has moved to a separate project https://github.com/theupdateframework/tuf-on-ci
+> repository-playground (the CI-based implementation) has moved to a separate project https://github.com/theupdateframework/tuf-on-ci
 
 # CI-based TUF implementation
 
