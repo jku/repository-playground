@@ -1,3 +1,7 @@
+> **⚠️ Note**
+> 
+> repository-playground (the CI-bsaed implementation) has moved to a separate project https://github.com/theupdateframework/tuf-on-ci
+
 # CI-based TUF implementation
 
 This is a TUF implementation that operates on Continuous Integration platform.
